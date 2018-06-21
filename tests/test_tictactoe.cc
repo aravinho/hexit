@@ -1,6 +1,9 @@
 #include <iostream>
 #include <vector>
 #include <set>
+#include <stdlib.h> // srand, rand
+#include <time.h> // to seed RNG
+
 
 #include "test_tictactoe.h"
 #include "../src/tictactoe.h"
@@ -17,7 +20,7 @@ vector<int> fm7 = {0,0,0,0,0,0,0,1,0};
 vector<int> bm3 = {1,0,0,-1,-1,0,0,0,1};
 vector<int> wm1 = {1,1,1,-1,-1,1,1,-1,-1};
 
-Tictactoe emp(e);
+Tictactoe emp;
 Tictactoe p1win_simple(p1ws);
 Tictactoe p2win_simple(p2ws);
 Tictactoe p1win_complex(p1wc);
@@ -105,6 +108,10 @@ void testTurn() {
 
 
 void runTictactoeTests() {
+	// seed RNG
+	srand(time(NULL));
+
+
 	testWinner();
 	testIsTerminalState();
 	testReward();
