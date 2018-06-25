@@ -111,7 +111,7 @@ void runTictactoeTests() {
 	// seed RNG
 	srand(time(NULL));
 
-
+	cout << "Testing Tictactoe..." << endl << endl;
 	testWinner();
 	testIsTerminalState();
 	testReward();
@@ -119,4 +119,5 @@ void runTictactoeTests() {
 	testIsLegalAction();
 	testRandomAction();
 	testTurn();
+	cout << "Done Testing Tictactoe." << endl << endl;
 }
