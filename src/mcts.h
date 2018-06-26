@@ -2,8 +2,19 @@
 
 #include <vector>
 
+
 using namespace std;
 
-void runPythonScript();
+
+void runPythonScript(string filename);
+
+class MCTS_Node {
+public:
+	int x;
+	MCTS_Node(int x);
+};
+
+
+
 
 #endif

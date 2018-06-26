@@ -19,7 +19,7 @@
 void runMctsTests() {
 	// seed RNG
 	srand(time(NULL));
-	runPythonScript();
+	runPythonScript("data/nums.txt");
 	//cout << "Testing MCTS..." << endl << endl;
 	//cout << "Done Testing MCTS." << endl << endl;
 
