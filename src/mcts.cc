@@ -9,11 +9,92 @@
 #include <sys/types.h>
 #include <signal.h>
 #include <fstream>
+#include <stdexcept>
 
 
 
 
 using namespace std;
+
+MCTS_Shared_Data::MCTS_Shared_Data(vector<MCTS_Node*>* all_nodes, int num_nodes, int minibatch_size, int num_threads) {
+	if (num_nodes % minibatch_size != 0) {
+		throw invalid_argument("The minibatch size must be divisible by the total number of nodes");
+	}
+	if (num_nodes % num_threads != 0) {
+		throw invalid_argument("The number of worker threads must be divisible by the total number of nodes");
+	}
+
+	this->num_nodes = num_nodes;
+	this->minibatch_size = minibatch_size;
+	this->num_threads = num_threads;
+	this->num_minibatches = num_nodes / minibatch_size;
+	this->num_nodes_per_thread = num_nodes / num_threads;
+
+	this->all_nodes = all_nodes;
+	this->nn_queue = new vector<StateVector*>(num_nodes);
+	this->nn_outputs = new vector<ActionDistribution*>(num_nodes);
+
+	this->minibatch_ownership = new vector<bool>(num_minibatches);
+	for (int minibatch_num = 0; minibatch_num < num_minibatches; minibatch_num++) {
+		this->minibatch_ownership->at(minibatch_num) = false;
+	}
+
+	this->nodes_left_to_submit = new vector<int>(num_minibatches);
+	for (int minibatch_num = 0; minibatch_num < num_minibatches; minibatch_num++) {
+		this->nodes_left_to_submit->at(minibatch_num) = minibatch_size;
+	}
+
+
+	this->active_nodes_in_minibatch = new vector<int>(num_minibatches);
+	for (int minibatch_num = 0; minibatch_num < num_minibatches; minibatch_num++) {
+		this->active_nodes_in_minibatch->at(minibatch_num) = minibatch_size;
+	}
+
+	this->active_nodes_in_thread = new vector<int>(num_threads);
+	for (int thread_num = 0; thread_num < num_threads; thread_num++) {
+		this->active_nodes_in_thread->at(thread_num) = num_nodes_per_thread;
+	}
+
+	cout << "Size of nn queue: " << nn_queue->size() << endl;
+
+}
+
+bool MCTS_Shared_Data::isWorkerSafe(int minibatch_num) {
+	m_shared_data.lock();
+	bool ret = !(this->minibatch_ownership->at(minibatch_num));
+	m_shared_data.unlock();
+	return ret;
+}
+
+bool MCTS_Shared_Data::isMasterSafe(int minibatch_num) {
+	m_shared_data.lock();
+	bool ret = this->minibatch_ownership->at(minibatch_num);
+	m_shared_data.unlock();
+	return ret;
+}
+
+// testing only
+void MCTS_Shared_Data::flipOwnershipFlag(int minibatch_num) {
+	this->m_shared_data.lock();
+	bool curr = this->minibatch_ownership->at(minibatch_num);
+	bool flip = !curr;
+	this->minibatch_ownership->at(minibatch_num) = flip;
+	this->m_shared_data.unlock();
+}
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 int MINIBATCH_SIZE = 16; // NN batch size
 int TOTAL_NUM_NODES = 64;
@@ -61,8 +142,16 @@ vector<int> nodes_left_per_thread(NODES_PER_THREAD);
 
 
 
-
-
+// what needs to go in the shared state
+/* nodes, nn_queue, nn_outputs
+array with a slot for each minibatch, true if nn ready, false otherwise
+interface with functions isWorkerSafe, isMasterSafe
+a condition variable called thread_signaler (workers notify_one the master, master notify_all's the workers) 
+an array with a slot for each minibatch, which denotes how many nodes are still active in this minibatch. 
+interface with functions numNodesLeftInMinibatch, function nodeComplete (which atomic decrements all necessary counters)
+a similar counter array with a slot for each worker thread, which denotes how many nodes are still active in this minibatch
+a counter array with slot for each batch, which denotes how many nodes are left to be submitted for this minibatch before master-ready
+*/
 
 
 
@@ -92,6 +181,8 @@ void atomicDecrement(int* var, mutex* mtx) {
 bool workerSafe(int minibatch_num) {
 	return !nn_ready[minibatch_num];
 }
+
+
 
 void workerThreadFunc(int thread_num) {
 	// process my thread
@@ -158,6 +249,15 @@ bool batchReady() {
 
 MCTS_Node::MCTS_Node(int x) {
 	this->x = x;
+}
+
+MCTS_Node::MCTS_Node() {
+
+}
+
+MCTS_Node* MCTS_Node::setX(int x) {
+	this->x = x;
+	return this;
 }
 
 

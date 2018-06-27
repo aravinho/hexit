@@ -8,7 +8,8 @@ int main()
 {
 	cout << endl << "Beginning Tests..." << endl << endl;
 	//runTictactoeTests();
-	runMctsTests();
+	//runMctsTests();
+	runMctsSharedDataTests();
 	cout << endl << "Finished Tests..." << endl << endl;
 }
 

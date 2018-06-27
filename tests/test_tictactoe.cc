@@ -32,7 +32,7 @@ Tictactoe black_move3(bm3);
 Tictactoe white_move1(wm1);
 
 void assertTrue(bool cond, string test_name, string message) {
-	string test_file = "test_tictactoe.cpp";
+	string test_file = "test_tictactoe.cc";
 	assertWithMessage(cond, test_file, test_name, message);
 }
 
