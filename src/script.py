@@ -1,15 +1,17 @@
 #!/usr/bin/env python
 import sys
 
-# def main():
-# 	print "HELLO WORLD SCRIPT"
-# 	return
-# 	batch_num = sys.argv[1]
-# 	x = "hi" + batch_num
-# 	#print "IN SCRIPT, processing batch ", batch_num
-# 	return
+def main():
+	state_vector_file = open(sys.argv[1])
+	action_distribution_file = open(sys.argv[2], 'w')
 
-# if __name__ == '__main__':
-# 	main()
+	for line in state_vector_file:
+		action_distribution_file.write(line)
+	
+	state_vector_file.close()
+	action_distribution_file.close()
 
-print "HELLO WORLD SCRIPT"
+
+if __name__ == '__main__':
+	main()
+

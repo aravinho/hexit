@@ -19,8 +19,8 @@ public:
 	MCTS_Node();
 	MCTS_Node* setX(int x);
 	bool isComplete();
-private:
 	int num_queries_required, num_queries_performed;
+	
 };
 
 
@@ -40,21 +40,6 @@ public:
 // adds the number in the action distribution to the x value of the given node. Returns a state vector with the new number
 StateVector* processMCTSNode(MCTS_Node* node, ActionDistribution* ad);
 
-// what needs to go in the shared state
-/* nodes, nn_queue, nn_outputs
-array with a slot for each minibatch, true if nn ready, false otherwise
-interface with functions isWorkerSafe, isMasterSafe
-a condition variable called thread_signaler (workers notify_one the master, master notify_all's the workers) 
-an array with a slot for each minibatch, which denotes how many nodes are still active in this minibatch. 
-interface with functions numNodesLeftInMinibatch, function nodeComplete (which atomic decrements all necessary counters)
-a similar counter array with a slot for each worker thread, which denotes how many nodes are still active in this minibatch
-a counter array with slot for each batch, which denotes how many nodes are left to be submitted for this minibatch before master-ready
-*/
-
-
-/*int DEFAULT_NUM_NODES = 64;
-int DEFAULT_MINIBATCH_SIZE = 16;
-int DEFAULT_num_threads = 4;*/
 
 /* This class contains all the data which is shared between master and worker threads.
  * This includes the arrays of nodes, the queue of state vectors, and the queue of NN results.
@@ -74,11 +59,12 @@ public:
 	/* Called by Master thread. Returns true if the given minibatch is safe for the master to process. */
 	bool isMasterSafe(int minibatch_num);
 
-	/* Called by either a Worker or a Master thread.  Returns true if the given minibatch is permanently complete, else false. */
-	bool isMinibatchComplete(int minibatch_num);
+	/* Called by either a Worker or a Master thread.  Returns true if the given minibatch is permanently complete, else false. 
+	 * lock_needed is set to true if the calling thread already holds the shared_data_mutex lock. */
+	bool isMinibatchComplete(int minibatch_num, bool lock_needed=true);
 
 	/* Called by either a Worker or a Master thread.  Returns true if all the nodes that the given thread is responsible for are complete. */
-	bool isThreadComplete(int minibatch_num);
+	bool isThreadComplete(int minibatch_num, bool lock_needed=true);
 
 	/* Called by Worker Thread. Causes the current worker thread to wait until it is safe to process nodes in this minibatch.
 	 * Returns true if the minibatch is permanently complete, and false if there are still nodes that need work. */ 
@@ -100,16 +86,28 @@ public:
 	/* Called by worker thread.  Returns a pointer to the node indexed by node_num. */
 	MCTS_Node* getNode(int node_num);
 
+	/* Called by worker thread. Returns a pointer to the Action Distribution (from the nn_outputs vector) indexed by node_num. */
+	ActionDistribution* getNNOutput(int node_num);
+
+	/* Called by master thread. Returns a pointer to the StateVector (from the nn_queue) indexed by node_num. */
+	StateVector* getStateVector(int node_num);
+
 	/* Called by Master thread, once the NN results for the given minibatch are safely written to the nn_outputs vector.
 	 * This resets appropriate flags, releases the master's hold on this minibatch, and signals to workers that there is a fresh minibatch for them to work on. */
 	void submitToNNOutputs(vector<ActionDistribution*>* nn_results, int minibatch_num);
 
 	/* Called by Worker thread, when a node has permanently finished its computation.
 	 * Decrements the active-node counters for this node's minibatch and thread. */
-	void completeNode(int node_num);
+	void markNodeComplete(int node_num);
 
 	/* Called by master or worker. Returns the number of active threads. */
 	int numActiveThreads();
+
+	/* Called by worker threads. Returns the number of active nodes left for this thread. */
+	int numActiveNodesInThread(int thread_num);
+
+	/* Called by worker or master thread.  Returns the number of active nodes left in this minibatch. */
+	int numActiveNodesInMinibatch(int minibatch_num);
 
 	/* Called by master or worker. Returns the number of active minibatches. */
 	int numActiveMinibatches();
@@ -120,6 +118,26 @@ public:
 	/* Called by the master thread.  Reads the given file, unpacks it into a vector of ActionDistributions, and writes these to the nn_outputs queue. */
 	void unparseNNResults(int minibatch_num, string infile);
 
+	/* Returns the index of the minibatch corresponding to the given node. */
+	int getMinibatchNum(int node_num);
+
+	/* Returns the index of the thread responsible for the given node. */
+	int getThreadNum(int node_num);
+
+	/* Called by worker thread.
+	 * Returns the index of the next active node for the given thread.  This function acts like an iterator.
+	 * Cycles back to the thread's first node once it reaches the end.
+	 * Returns -1 if there are no more nodes to process.
+	 */
+	int nextActiveNodeNum(int thread_num);
+
+	/* Called by master thread.
+	 * Returns the index of the next active minibatch.  This function acts like an iterator.
+	 * Cycles back to the first active minibatch once it reaches the end.
+	 * Returns -1 if all minibatches are complete.
+	 */
+	int nextActiveMinibatchNum();
+
 	/* Just for testing. */
 	void flipOwnershipFlag(int minibatch_num);
 
@@ -128,13 +146,33 @@ public:
 
 	/* Called by master or worker thread to register a name for itself. For logging purposes. */
 	void registerThreadName(__thread_id tid, string thread_name);
+
+	// for testing, prints a minibatch
+	void logMinibatch(int minibatch_num);
+
+	// if works, comment nicely
+	StateVector* nnQueueGet(int node_num);
+	void nnQueuePut(StateVector* state_vector, int node_num);
+	void incrementNumQueueSubmissions(int minibatch_num);
+	int numQueueSubmissions(int minibatch_num);
+	int totalNumQueueSubmissions();
+	void logNumQueueSubmissions();
+	void logQueue();
+
+	// promising
+
+	/* Called by Worker Thread. Causes the current worker thread to wait until it is safe to process this specific node.
+	 * This function first makes sure the minibatch is available, then checks that this node has not already been processed by this thread
+	 * since its minibatch was last freshened by the Master. */
+	void workerWaitForNode(int node_num, int thread_num); 
+
+		/* Marks that this thread has processed this node.  This prevents the looping problem. */
+	void markNodeProcessed(int node_num, int thread_num);
+
+
 private:
 
-	/* Returns the index of the minibatch corresponding to the given node. */
-	int getMinibatchNum(int node_num);
-
-	/* Returns the index of the thread responsible for the given node. */
-	int getThreadNum(int node_num);
+	
 
 	/* Called by worker thread. Marks the given minibatch safe for the master to consume. */
 	void markMasterSafe(int minibatch_num);
@@ -142,13 +180,32 @@ private:
 	/* Called by master thread. Marks the given minibatch safe for workers to touch. */
 	void markWorkerSafe(int minibatch_num);
 
+	/* Throws error if this is not a valid thread number. */
+	void assertValidThreadNum(int thread_num);
+
+	/* Throws error if this is not a valid minibatch number. */
+	void assertValidMinibatchNum(int minibatch_num);
+
+	/* Throws error if this is not a valid node number. */
+	void assertValidNodeNum(int node_num);
+
 
 	/* Decrements the counter for the number of nodes left to submit for this minibatch.
 	 * If at 0, and we are trying to decrement, throws an error.
 	 * If the number of nodes left to submit for this minibatch is now 0, mark the minibatch as master safe, reset the nodes_left_to_submit counter,
 	 * and signal the master to wake up.
 	 * Returns the new number of nodes left to submit for this minibatch. */
-	int decrementNodesLeft(int minibatch_num);
+	int decrementNodesLeft(int node_num, bool lock_needed=true);
+
+	// experimental
+	/* Returns true if this thread has already processed this node since the last freshening by the master. */
+	bool threadHasAlreadyProcessed(int node_num, int thread_num);
+
+
+
+
+
+
 
 	int num_nodes;
 	int minibatch_size;
@@ -169,6 +226,17 @@ private:
 	int num_active_minibatches; // the number of minibatches for which there is one or more active node
 	int num_active_threads; // the number of minibatches for which there is one or more active node
 
+
+	vector<int>* current_node_of_thread; // notes the node that each worker thread is currently processing, holds -1 if all the thread's nodes are done
+	// these next two vectors implement a doubly linked list of active node indexes
+	vector<int>* next_active_node; // the i-th entry notes the index of the first node after the i-th node that is still active
+	vector<int>* prev_active_node; // the i-th entry notes the index of the first node before the i-th node that is still active
+
+
+	int master_current_minibatch; // notes the minibatch on which the master is currently working
+	vector<int>* next_active_minibatch; // the i-th entry notes the index of the first minibatch after the i-th minibatch that is still active
+	vector<int>* prev_active_minibatch; // the i-th entry notes the index of the first minibatch before the i-th minibatch that is still active
+
 	// workers and masters cannot simultaneously touch the same minibatch
 	mutex minibatch_safe_mutex;
 	condition_variable minibatch_safe_cv;
@@ -182,8 +250,22 @@ private:
 	// for logging purposes
 	map<__thread_id, string>* thread_names;
 
+	// experimental
+	mutex queue_mutex;
+	vector<int>* num_queue_submissions; // testing only
+	int total_num_queue_submissions;
+
+	// experimental with promise
+	map<int, vector<int>*>* num_submissions_per_thread; // maps minibatch numbers to vector of size num_threads
+	// num_submissions_per_thread[b][t] gives the number of submissions that Thread T has made to minibatch B since batch B was last reset by master
+	// this prevents the problem of a single thread looping back before master gets control and continuing to work on a batch it has already seen
+
 
 };
+
+
+// just here while testing
+void masterFunc(string infile, int num_nodes=64, int minibatch_size=16, int num_threads = 4);
 
 
 #endif

@@ -30,7 +30,13 @@ void sharedDataSimpleSimulation() {
 	int num_nodes = 64, minibatch_size = 16, num_threads = 4;
 	int nodes_per_thread = 16, num_minibatches = 4;
 
-	cout << "num_minibatches" << num_minibatches << endl;
+	string initial_states_file = "data/initial_states.txt";
+
+	cout << "About to call master func" << endl << endl;
+	masterFunc(initial_states_file, num_nodes, minibatch_size, num_threads);
+	cout << endl << "Done calling master func" << endl;
+
+	/*cout << "num_minibatches" << num_minibatches << endl;
 
 	vector<MCTS_Node*>* all_nodes = new vector<MCTS_Node*>(64);
 	for (int node_num = 0; node_num < 64; node_num++) {
@@ -46,7 +52,7 @@ void sharedDataSimpleSimulation() {
 
 	for (int minibatch_num = 0; minibatch_num < num_minibatches; minibatch_num++) {
 		assertTrueMCTS(data->isMasterSafe(minibatch_num), "sharedDataSimpleSimulation", "all minibatches must now be master safe from master");
-	}
+	}*/
 
 }
 
