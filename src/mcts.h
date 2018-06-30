@@ -115,6 +115,9 @@ public:
 	/* Called by the master thread.  Grabs the given minibatch from the nn_queue, converts each StateVector into a serializable format, and writes it to file. */
 	void writeMinibatchToFile(int minibatch_num, string outfile);
 
+	/* Called by the master thread at very end.  Grabs the given minibatch from the nodes vector, and writes each node to file. */
+	void writeMinibatchNodesToFile(int minibatch_num, string outfile);
+
 	/* Called by the master thread.  Reads the given file, unpacks it into a vector of ActionDistributions, and writes these to the nn_outputs queue. */
 	void unparseNNResults(int minibatch_num, string infile);
 

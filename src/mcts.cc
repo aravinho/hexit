@@ -97,7 +97,12 @@ MCTS_Shared_Data::MCTS_Shared_Data(vector<MCTS_Node*>* all_nodes, int num_nodes,
 	for (int minibatch_num = 0; minibatch_num < num_minibatches; minibatch_num++) {
 
 		this->next_active_minibatch->at(minibatch_num) = (minibatch_num + 1) % num_minibatches;
-		this->prev_active_minibatch->at(minibatch_num) = (minibatch_num - 1) % num_minibatches;
+		if (minibatch_num == 0) {
+			this->prev_active_minibatch->at(minibatch_num) = num_minibatches - 1;
+		}
+		else {
+			this->prev_active_minibatch->at(minibatch_num) = (minibatch_num - 1) % num_minibatches;
+		}
 	}
 
 
@@ -288,9 +293,9 @@ void MCTS_Shared_Data::markNodeProcessed(int node_num, int thread_num) {
 void MCTS_Shared_Data::markNodeComplete(int node_num) {
 	assertValidNodeNum(node_num);
 
-	/*if (node_num == 4) {
-		log("Node 4 being marked complete!");
-	}*/
+	if (node_num == 15) {
+		log("Node 15 being marked complete!");
+	}
 	int minibatch_num = getMinibatchNum(node_num);
 	int thread_num = getThreadNum(node_num);
 
@@ -303,13 +308,28 @@ void MCTS_Shared_Data::markNodeComplete(int node_num) {
 	bool minibatch_complete = isMinibatchComplete(minibatch_num, false);
 
 	if (minibatch_complete) {
+		if (node_num == 15) {
+			log("Node 15 means minibatch complete!");
+		}
 		num_active_minibatches--;
 		// if the completion of this node completes the minibatch, update the next_active_minibatch and prev_active_minibatch linked list
 		// so the master won't waste time looking at completed minibatches
 		int prev_minibatch = prev_active_minibatch->at(minibatch_num);
+		if (node_num == 15) {
+			log("Node 15 prev_minibatch: " + to_string(prev_minibatch));
+		}
 		int next_minibatch = next_active_minibatch->at(minibatch_num);
+		if (node_num == 15) {
+			log("Node 15 next_minibatch: " + to_string(next_minibatch));
+		}
 		next_active_minibatch->at(prev_minibatch) = next_minibatch;
+		if (node_num == 15) {
+			log("Node 15 c!");
+		}
 		prev_active_minibatch->at(next_minibatch) = prev_minibatch;
+		if (node_num == 15) {
+			log("Node 15 linked list pointers successfull updated!");
+		}
 
 	}
 
@@ -557,6 +577,19 @@ void MCTS_Shared_Data::writeMinibatchToFile(int minibatch_num, string outfile) {
   	}
 }
 
+void MCTS_Shared_Data::writeMinibatchNodesToFile(int minibatch_num, string outfile) {
+	ofstream f (outfile);
+  	if (f.is_open()) {
+  		for (int state_num = minibatch_num * minibatch_size; state_num < (minibatch_num + 1) * minibatch_size; state_num++) {
+  			f << to_string(all_nodes->at(state_num)->x) << "\n";
+  		}
+    	f.close();
+  	}
+  	else {
+  		throw invalid_argument("Unable to open file " + outfile);
+  	}
+}
+
 void MCTS_Shared_Data::unparseNNResults(int minibatch_num, string infile) {
 	string line;
 	ifstream f (infile);
@@ -697,8 +730,9 @@ void workerFunc(int thread_num, MCTS_Shared_Data* data) {
 		// if this node was already complete, or is now complete, mark it complete
 		// there is no need to submit any state vector
 		if (node->isComplete()) {
+			data->log("Node " + to_string(node_num) + " about to be marked complete");
 			data->markNodeComplete(node_num);
-
+			data->log("Node " + to_string(node_num) + " successfully marked complete");
 			continue;
 		}
 		//data->log("foo");
@@ -788,7 +822,7 @@ void masterFunc(string infile, int num_nodes, int minibatch_size, int num_thread
 
 
 		int round = rounds_per_minibatch->at(minibatch_num);
-		data->log("Master starting on minibatch " + to_string(minibatch_num) + " in round " + to_string(round));
+		//data->log("Master starting on minibatch " + to_string(minibatch_num) + " in round " + to_string(round));
 
 
 		string state_vector_file = "data/tmp/state_vectors_" + to_string(round) + "_" + to_string(minibatch_num);
@@ -814,6 +848,17 @@ void masterFunc(string infile, int num_nodes, int minibatch_size, int num_thread
 
 	}
 
+	// wait for all workers to join
+	for (int thread_num = 0; thread_num < num_threads; thread_num++) {
+		worker_threads[thread_num].join();
+	}
+
+	// finally write all the nodes to file
+	int num_minibatches = num_nodes / minibatch_size;
+	for (int minibatch_num = 0; minibatch_num < num_minibatches; minibatch_num++) {
+		string node_file = "data/tmp/nodes_" + to_string(minibatch_num);
+		data->writeMinibatchNodesToFile(minibatch_num, node_file);
+	}
 }
 
 
