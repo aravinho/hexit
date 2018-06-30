@@ -14,6 +14,7 @@ void runPythonScript(string filename);
 
 class MCTS_Node {
 public:
+	int init_x;
 	int x;
 	MCTS_Node(int x);
 	MCTS_Node();
@@ -140,9 +141,6 @@ public:
 	 * Returns -1 if all minibatches are complete.
 	 */
 	int nextActiveMinibatchNum();
-
-	/* Just for testing. */
-	void flipOwnershipFlag(int minibatch_num);
 
 	/* Called by master or worker thread.  Logs the given message after acquiring the cout_lock. */
 	void log(string message);

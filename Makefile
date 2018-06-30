@@ -6,7 +6,7 @@ CC	= g++ -std=c++11
 INC_FLAGS = -I src -I tests
 
 check : $(TEST_EXE_FILE)
-	rm -rf data/tmp/*; ./$(TEST_EXE_FILE); diff data/tmp/state_vectors_0_0 data/exp_state_vectors
+	./$(TEST_EXE_FILE); diff data/tmp/nodes_0 data/exp_nodes_0; diff data/tmp/nodes_1 data/exp_nodes_1; diff data/tmp/nodes_2 data/exp_nodes_2; diff data/tmp/nodes_3 data/exp_nodes_3;
 
 $(TEST_EXE_FILE): $(SRC_OBJ_FILES) $(TEST_OBJ_FILES)
 	$(CC) -o $(TEST_EXE_FILE) $(TEST_OBJ_FILES) $(SRC_OBJ_FILES)
