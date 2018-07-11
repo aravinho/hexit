@@ -19,14 +19,6 @@ void assertTrueMCTS(bool cond, string test_name, string message) {
 	assertWithMessage(cond, test_file, test_name, message);
 }
 
-void simpleFlagFlip(MCTS_Shared_Data* data) {
-	// all minibatches should initially be worker safe
-	/*for (int minibatch_num = 0; minibatch_num < 4; minibatch_num++) {
-		assertTrueMCTS(data->isWorkerSafe(minibatch_num), "sharedDataSimpleSimulation", "all minibatches must initially be worker safe");
-		data->flipOwnershipFlag(minibatch_num);
-		assertTrueMCTS(data->isMasterSafe(minibatch_num), "sharedDataSimpleSimulation", "all minibatches must now be master safe from worker");
-	}*/
-}
 
 void simulationStartup() {
 	system("exec rm -r data/tmp/*");
