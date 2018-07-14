@@ -1,5 +1,4 @@
-#include "mcts_shared_data.h"
-//#include "mcts_node.h"
+#include "mcts_thread_manager.h"
 
 #include <iostream>
 #include <unistd.h>
@@ -18,7 +17,7 @@ using namespace std;
 
 bool logging = false;
 
-MCTS_Shared_Data::MCTS_Shared_Data(vector<MCTS_Node*>* all_nodes, int num_nodes, int minibatch_size, int num_threads) {
+MCTS_Thread_Manager::MCTS_Thread_Manager(vector<MCTS_Node*>* all_nodes, int num_nodes, int minibatch_size, int num_threads) {
 	if (num_nodes % minibatch_size != 0) {
 		throw invalid_argument("The minibatch size must be divisible by the total number of nodes");
 	}
@@ -34,10 +33,10 @@ MCTS_Shared_Data::MCTS_Shared_Data(vector<MCTS_Node*>* all_nodes, int num_nodes,
 
 	this->all_nodes = all_nodes;
 	this->nn_queue = new vector<StateVector*>(num_nodes);
-	this->nn_outputs = new vector<ActionDistribution*>(num_nodes);
+	this->nn_results = new vector<ActionDistribution*>(num_nodes);
 	for (int node_num = 0; node_num < num_nodes; node_num++) {
 		this->nn_queue->at(node_num) = new StateVector(0);
-		this->nn_outputs->at(node_num) = new ActionDistribution(0);
+		this->nn_results->at(node_num) = new ActionDistribution(0);
 	}
 
 	this->minibatch_ownership = new vector<bool>(num_minibatches);
@@ -112,10 +111,7 @@ MCTS_Shared_Data::MCTS_Shared_Data(vector<MCTS_Node*>* all_nodes, int num_nodes,
 
 	thread_names = new map<__thread_id, string>();
 
-	// testing only
-	this->num_queue_submissions = new vector<int>(num_minibatches, 0);
 
-	// testing having mutexes as pointers
 
 	// promising
 	num_submissions_per_thread = new map<int, vector<int>*>();
@@ -130,11 +126,11 @@ MCTS_Shared_Data::MCTS_Shared_Data(vector<MCTS_Node*>* all_nodes, int num_nodes,
 		active_nodes_in_minibatch_per_thread->insert(pair<int, vector<int>*>(minibatch_num, new vector<int>(num_threads, minibatch_size / num_threads)));
 	}
 
-
+	num_script_invocations = 0;
  
 }
 
-bool MCTS_Shared_Data::isWorkerSafe(int minibatch_num) {
+bool MCTS_Thread_Manager::isWorkerSafe(int minibatch_num) {
 	assertValidMinibatchNum(minibatch_num);
 	shared_data_mutex.lock();
 	bool ret = !(this->minibatch_ownership->at(minibatch_num));
@@ -142,7 +138,7 @@ bool MCTS_Shared_Data::isWorkerSafe(int minibatch_num) {
 	return ret;
 }
 
-bool MCTS_Shared_Data::isMasterSafe(int minibatch_num) {
+bool MCTS_Thread_Manager::isMasterSafe(int minibatch_num) {
 	assertValidMinibatchNum(minibatch_num);
 	shared_data_mutex.lock();
 	bool ret = this->minibatch_ownership->at(minibatch_num);
@@ -150,7 +146,7 @@ bool MCTS_Shared_Data::isMasterSafe(int minibatch_num) {
 	return ret;
 }
 
-bool MCTS_Shared_Data::workerWaitForMinibatch(int minibatch_num) {
+bool MCTS_Thread_Manager::workerWaitForMinibatch(int minibatch_num) {
 	assertValidMinibatchNum(minibatch_num);
 	unique_lock<mutex> minibatch_safe_lock(minibatch_safe_mutex);
 	while (!isWorkerSafe(minibatch_num)) {
@@ -161,7 +157,7 @@ bool MCTS_Shared_Data::workerWaitForMinibatch(int minibatch_num) {
 }
 
 // experimental
-bool MCTS_Shared_Data::threadHasAlreadyProcessed(int node_num, int thread_num) {
+bool MCTS_Thread_Manager::threadHasAlreadyProcessed(int node_num, int thread_num) {
 	assertValidNodeNum(node_num);
 	assertValidThreadNum(thread_num);
 
@@ -187,7 +183,7 @@ bool MCTS_Shared_Data::threadHasAlreadyProcessed(int node_num, int thread_num) {
 }
 
 // experimental
-void MCTS_Shared_Data::workerWaitForNode(int node_num, int thread_num) {
+void MCTS_Thread_Manager::workerWaitForNode(int node_num, int thread_num) {
 	assertValidNodeNum(node_num);
 	assertValidThreadNum(thread_num);
 
@@ -226,7 +222,7 @@ void MCTS_Shared_Data::workerWaitForNode(int node_num, int thread_num) {
 }
 
 
-bool MCTS_Shared_Data::masterWaitForMinibatch(int minibatch_num) {
+bool MCTS_Thread_Manager::masterWaitForMinibatch(int minibatch_num) {
 	assertValidMinibatchNum(minibatch_num);
 	unique_lock<mutex> minibatch_safe_lock(minibatch_safe_mutex);
 	bool waited = false;
@@ -244,7 +240,7 @@ bool MCTS_Shared_Data::masterWaitForMinibatch(int minibatch_num) {
 	return isMinibatchComplete(minibatch_num);
 }
 
-bool MCTS_Shared_Data::isMinibatchComplete(int minibatch_num, bool lock_needed) {
+bool MCTS_Thread_Manager::isMinibatchComplete(int minibatch_num, bool lock_needed) {
 	assertValidMinibatchNum(minibatch_num);
 	if (lock_needed) {
 		shared_data_mutex.lock();
@@ -256,7 +252,7 @@ bool MCTS_Shared_Data::isMinibatchComplete(int minibatch_num, bool lock_needed) 
 	return ret;
 }
 
-bool MCTS_Shared_Data::isThreadComplete(int minibatch_num, bool lock_needed) {
+bool MCTS_Thread_Manager::isThreadComplete(int minibatch_num, bool lock_needed) {
 	assertValidMinibatchNum(minibatch_num);
 	if (lock_needed) {
 		shared_data_mutex.lock();
@@ -269,12 +265,12 @@ bool MCTS_Shared_Data::isThreadComplete(int minibatch_num, bool lock_needed) {
 }
 
 
-MCTS_Node* MCTS_Shared_Data::getNode(int node_num) {
+MCTS_Node* MCTS_Thread_Manager::getNode(int node_num) {
 	assertValidNodeNum(node_num);
 	return all_nodes->at(node_num);
 }
 
-void MCTS_Shared_Data::submitToNNQueue(StateVector* state_vector, int node_num) {
+void MCTS_Thread_Manager::submitToNNQueue(StateVector* state_vector, int node_num) {
 	assertValidNodeNum(node_num);
 	if (state_vector == NULL) {
 		throw invalid_argument("submitToNNQueue: Cannot submit a NULL state vector for node " + to_string(node_num));
@@ -295,51 +291,25 @@ void MCTS_Shared_Data::submitToNNQueue(StateVector* state_vector, int node_num) 
 	
 }
 
-// testing
-void MCTS_Shared_Data::incrementNumQueueSubmissions(int minibatch_num) {
-	queue_mutex.lock();
-	num_queue_submissions->at(minibatch_num) += 1;
-	total_num_queue_submissions += 1;
-	queue_mutex.unlock();
-}
-int MCTS_Shared_Data::numQueueSubmissions(int minibatch_num) {
-	queue_mutex.lock();
-	int ret = num_queue_submissions->at(minibatch_num);
-	queue_mutex.unlock();
-	return ret;
-}
-int MCTS_Shared_Data::totalNumQueueSubmissions() {
-	queue_mutex.lock();
-	int ret = total_num_queue_submissions;
-	queue_mutex.unlock();
-	return ret;
-}
 
-void MCTS_Shared_Data::submitToNNOutputs(vector<ActionDistribution*>* nn_results, int minibatch_num, int round) {
+void MCTS_Thread_Manager::submitToNNResults(vector<ActionDistribution*>* nn_results, int minibatch_num, int round) {
 	assertValidMinibatchNum(minibatch_num);
 	if (nn_results == NULL || nn_results->size() != minibatch_size) {
-		throw invalid_argument("submitToNNOutputs: Cannot submit NN Results that are null or the wrong size for minibatch " + to_string(minibatch_num));
+		throw invalid_argument("submitToNNResults: Cannot submit NN Results that are null or the wrong size for minibatch " + to_string(minibatch_num));
 	}
 
 	// wait till it's safe to touch this minibatch (it should be already), then submit NN results for every node in this minibatch
 	masterWaitForMinibatch(minibatch_num);
 
-	// check stuff
-	checkBeforeADEnqueue(minibatch_num, nn_results, round);
+	
 
 
 	for (int state_num = 0; state_num < minibatch_size; state_num++) {
 		int node_num = minibatch_num * minibatch_size + state_num;
-
-		//quick check that ad is twice what it was before
-		int prev_ad = adQueueGet(node_num)->z;
-		int new_ad = nn_results->at(state_num)->z;
-
 		adQueuePut(nn_results->at(state_num), node_num);
 	}
 
-	// check stuff after enqueue
-	checkAfterADEnqueue(minibatch_num, nn_results, round);
+	
 
 	// mark this minibatch worker safe
 	markWorkerSafe(minibatch_num);
@@ -351,21 +321,21 @@ void MCTS_Shared_Data::submitToNNOutputs(vector<ActionDistribution*>* nn_results
 }
 
 
-ActionDistribution* MCTS_Shared_Data::adQueueGet(int node_num) {
+ActionDistribution* MCTS_Thread_Manager::adQueueGet(int node_num) {
 	queue_mutex.lock();
-	ActionDistribution* ret = nn_outputs->at(node_num);
+	ActionDistribution* ret = nn_results->at(node_num);
 	queue_mutex.unlock();
 	return ret;
 
 }
 
-void MCTS_Shared_Data::adQueuePut(ActionDistribution* ad, int node_num) {
+void MCTS_Thread_Manager::adQueuePut(ActionDistribution* ad, int node_num) {
 	queue_mutex.lock();
-	nn_outputs->at(node_num) = ad;
+	nn_results->at(node_num) = ad;
 	queue_mutex.unlock();
 }
 
-void MCTS_Shared_Data::markNodeProcessed(int node_num, int thread_num) {
+void MCTS_Thread_Manager::markNodeProcessed(int node_num, int thread_num) {
 	assertValidNodeNum(node_num);
 	assertValidThreadNum(thread_num);
 
@@ -377,7 +347,7 @@ void MCTS_Shared_Data::markNodeProcessed(int node_num, int thread_num) {
 	shared_data_mutex.unlock();
 }
 
-void MCTS_Shared_Data::markNodeComplete(int node_num) {
+void MCTS_Thread_Manager::markNodeComplete(int node_num) {
 	assertValidNodeNum(node_num);
 
 	int minibatch_num = getMinibatchNum(node_num);
@@ -438,7 +408,7 @@ void MCTS_Shared_Data::markNodeComplete(int node_num) {
 }
 
 // removing lock and unlock, because is only called from locked context
-void MCTS_Shared_Data::markMasterSafe(int minibatch_num, bool from_locked) {
+void MCTS_Thread_Manager::markMasterSafe(int minibatch_num, bool from_locked) {
 	assertValidMinibatchNum(minibatch_num);
 	minibatch_ownership->at(minibatch_num) = true;
 	string fl = "from locked context";
@@ -446,7 +416,7 @@ void MCTS_Shared_Data::markMasterSafe(int minibatch_num, bool from_locked) {
 	log("Minibatch " + to_string(minibatch_num) + " just marked master-safe " + fl);
 }
 
-void MCTS_Shared_Data::markWorkerSafe(int minibatch_num) {
+void MCTS_Thread_Manager::markWorkerSafe(int minibatch_num) {
 	assertValidMinibatchNum(minibatch_num);
 	shared_data_mutex.lock();
 	minibatch_ownership->at(minibatch_num) = false;
@@ -458,57 +428,10 @@ void MCTS_Shared_Data::markWorkerSafe(int minibatch_num) {
 	shared_data_mutex.unlock();
 }
 
-void MCTS_Shared_Data::logMinibatch(int minibatch_num) {
-	cout_mutex.lock();
-	cout << endl << thread_names->at(this_thread::get_id()) << " - ";
-	cout <<  "Batch " << minibatch_num << endl;
-
-	cout << endl << "ActionDistribution Z-Values: " << endl;
-	for (int node_num = minibatch_num * minibatch_size; node_num < (minibatch_num + 1) * minibatch_size; node_num++) {
-		cout << adQueueGet(node_num)->z << "\t";
-	}
-
-	cout << endl << endl;;
-	cout_mutex.unlock();
-}
-
-void MCTS_Shared_Data::logQueue() {
-	cout_mutex.lock();
-	cout << endl << "Queue:" << endl;
-	for (int minibatch_num = 0; minibatch_num < num_minibatches; minibatch_num++) {
-		cout << "Batch " << minibatch_num << ":\t";
-		for (int node_num = minibatch_num * minibatch_size; node_num < (minibatch_num + 1) * minibatch_size; node_num++) {
-			cout << nnQueueGet(node_num)->y << "\t";
-		}
-		cout << endl << endl;
-	}
-	cout_mutex.unlock();
-}
 
 
-void MCTS_Shared_Data::logNumQueueSubmissions() {
-	/*cout_mutex.lock();
-	cout << "Total number of submissions: " << totalNumQueueSubmissions() << endl;
-	for (int minibatch_num = 0; minibatch_num < num_minibatches; minibatch_num++) {
-		cout << numQueueSubmissions(minibatch_num) << "\t";
-	}
-	cout << endl;
-	cout_mutex.unlock();*/
 
-
-	cout_mutex.lock();
-	for (int minibatch_num = 0; minibatch_num < num_minibatches; minibatch_num++) {
-		cout << "Batch " << minibatch_num << ":\t";
-		for (int thread_num = 0; thread_num < num_threads; thread_num++) {
-			cout << num_submissions_per_thread->at(minibatch_num)->at(thread_num) << "\t";
-		}
-		cout << endl;
-	}
-	cout << endl;
-	cout_mutex.unlock();
-}
-
-int MCTS_Shared_Data::decrementNodesLeft(int minibatch_num, int node_num, bool lock_needed) {
+int MCTS_Thread_Manager::decrementNodesLeft(int minibatch_num, int node_num, bool lock_needed) {
 	assertValidMinibatchNum(minibatch_num);
 
 	string ln = " from UNLOCKED context";
@@ -564,7 +487,7 @@ int MCTS_Shared_Data::decrementNodesLeft(int minibatch_num, int node_num, bool l
 
 }
 
-StateVector* MCTS_Shared_Data::nnQueueGet(int node_num) {
+StateVector* MCTS_Thread_Manager::nnQueueGet(int node_num) {
 	queue_mutex.lock();
 	StateVector* ret = nn_queue->at(node_num);
 	queue_mutex.unlock();
@@ -572,62 +495,60 @@ StateVector* MCTS_Shared_Data::nnQueueGet(int node_num) {
 
 }
 
-void MCTS_Shared_Data::nnQueuePut(StateVector* state_vector, int node_num) {
+void MCTS_Thread_Manager::nnQueuePut(StateVector* state_vector, int node_num) {
 	queue_mutex.lock();
 	nn_queue->at(node_num) = state_vector;
-	num_queue_submissions->at(getMinibatchNum(node_num)) += 1;
-	total_num_queue_submissions += 1;
 	queue_mutex.unlock();
 }
 
 
-int MCTS_Shared_Data::getMinibatchNum(int node_num) {
+int MCTS_Thread_Manager::getMinibatchNum(int node_num) {
 	assertValidNodeNum(node_num);
 	return node_num / minibatch_size;
 }
 
-int MCTS_Shared_Data::getThreadNum(int node_num) {
+int MCTS_Thread_Manager::getThreadNum(int node_num) {
 	assertValidNodeNum(node_num);
 	return node_num % num_threads;
 }
 
-int MCTS_Shared_Data::numActiveThreads() {
+int MCTS_Thread_Manager::numActiveThreads() {
 	return num_active_threads;
 }
 
-int MCTS_Shared_Data::numActiveMinibatches() {
+int MCTS_Thread_Manager::numActiveMinibatches() {
 	return num_active_minibatches;
 }
 
-int MCTS_Shared_Data::numActiveNodesInThread(int thread_num) {
+int MCTS_Thread_Manager::numActiveNodesInThread(int thread_num) {
 	assertValidThreadNum(thread_num);
 	return active_nodes_in_thread->at(thread_num);
 }
 
-int MCTS_Shared_Data::numActiveNodesInMinibatch(int minibatch_num) {
+int MCTS_Thread_Manager::numActiveNodesInMinibatch(int minibatch_num) {
 	assertValidMinibatchNum(minibatch_num);
 	return active_nodes_in_minibatch->at(minibatch_num);
 }
 
-void MCTS_Shared_Data::assertValidThreadNum(int thread_num) {
+void MCTS_Thread_Manager::assertValidThreadNum(int thread_num) {
 	if (thread_num < 0 || thread_num >= num_threads) {
 		throw invalid_argument("No thread numbered " + to_string(thread_num));
 	}
 }
 
-void MCTS_Shared_Data::assertValidMinibatchNum(int minibatch_num) {
+void MCTS_Thread_Manager::assertValidMinibatchNum(int minibatch_num) {
 	if (minibatch_num < 0 || minibatch_num >= num_minibatches) {
 		throw invalid_argument("No minibatch numbered " + to_string(minibatch_num));
 	}
 }
 
-void MCTS_Shared_Data::assertValidNodeNum(int node_num) {
+void MCTS_Thread_Manager::assertValidNodeNum(int node_num) {
 	if (node_num < 0 || node_num >= num_nodes) {
 		throw invalid_argument("No node numbered " + to_string(node_num));
 	}
 }
 
-int MCTS_Shared_Data::nextActiveNodeNum(int thread_num) {
+int MCTS_Thread_Manager::nextActiveNodeNum(int thread_num) {
 	assertValidThreadNum(thread_num);
 	if (numActiveNodesInThread(thread_num) <= 0) {
 		return -1;
@@ -640,7 +561,7 @@ int MCTS_Shared_Data::nextActiveNodeNum(int thread_num) {
 
 }
 
-int MCTS_Shared_Data::nextActiveMinibatchNum() {
+int MCTS_Thread_Manager::nextActiveMinibatchNum() {
 	if (num_active_minibatches == 0) {
 		return -1;
 	}
@@ -653,7 +574,7 @@ int MCTS_Shared_Data::nextActiveMinibatchNum() {
 }
 
 
-void MCTS_Shared_Data::writeMinibatchToFile(int minibatch_num, string outfile) {
+void MCTS_Thread_Manager::serializeNNQueue(int minibatch_num, string outfile) {
 	ofstream f (outfile);
   	if (f.is_open()) {
   		for (int state_num = minibatch_num * minibatch_size; state_num < (minibatch_num + 1) * minibatch_size; state_num++) {
@@ -666,7 +587,7 @@ void MCTS_Shared_Data::writeMinibatchToFile(int minibatch_num, string outfile) {
   	}
 }
 
-void MCTS_Shared_Data::writeMinibatchNodesToFile(int minibatch_num, string outfile) {
+void MCTS_Thread_Manager::writeNodesToFile(int minibatch_num, string outfile) {
 	ofstream f (outfile);
   	if (f.is_open()) {
   		for (int state_num = minibatch_num * minibatch_size; state_num < (minibatch_num + 1) * minibatch_size; state_num++) {
@@ -679,21 +600,21 @@ void MCTS_Shared_Data::writeMinibatchNodesToFile(int minibatch_num, string outfi
   	}
 }
 
-void MCTS_Shared_Data::unparseNNResults(int minibatch_num, string infile, int round) {
+void MCTS_Thread_Manager::deserializeNNResults(int minibatch_num, string infile, int round) {
 	string line;
 	ifstream f (infile);
 
 	if (f.is_open()) {
-		vector<ActionDistribution*>* minibatch_nn_outputs = new vector<ActionDistribution*>(minibatch_size);
+		vector<ActionDistribution*>* minibatch_nn_results = new vector<ActionDistribution*>(minibatch_size);
 		int state_num = 0;
 		while(getline(f, line)) {
-			minibatch_nn_outputs->at(state_num) = new ActionDistribution(stoi(line));
+			minibatch_nn_results->at(state_num) = new ActionDistribution(stoi(line));
 			state_num++;
 	    }
 	    f.close();
 
 
-	    submitToNNOutputs(minibatch_nn_outputs, minibatch_num, round);
+	    submitToNNResults(minibatch_nn_results, minibatch_num, round);
 	}
 	else {
 		throw invalid_argument("Unable to open file " + infile);
@@ -702,41 +623,16 @@ void MCTS_Shared_Data::unparseNNResults(int minibatch_num, string infile, int ro
 }
 
 
-// to submit should be twice existing
-void MCTS_Shared_Data::checkBeforeADEnqueue(int minibatch_num, vector<ActionDistribution*>* ads_to_submit, int round) {
-	for (int state_num = 0; state_num < minibatch_size; state_num++) {
-		int node_num = minibatch_num * minibatch_size + state_num;
-		int existing = adQueueGet(node_num)->z;
-		int to_submit = ads_to_submit->at(state_num)->z;
-		if (existing != 0 && round < (state_num % 8) && existing * 2 != to_submit) {
-			log("SCREAMMMM, minibatch_num: " + to_string(minibatch_num) + ", round: " + to_string(round) + ", state num: " + to_string(state_num) + ", node_num: " + to_string(node_num));
-			log("existing: " + to_string(existing) + ", to_submit: " + to_string(to_submit));
-		}
-	}
-}
 
-// just submitted should equal existing
-void MCTS_Shared_Data::checkAfterADEnqueue(int minibatch_num, vector<ActionDistribution*>* ads_submitted, int round) {
-	for (int state_num = 0; state_num < minibatch_size; state_num++) {
-		int node_num = minibatch_num * minibatch_size + state_num;
-		int existing = adQueueGet(node_num)->z;
-		int just_submitted = ads_submitted->at(state_num)->z;
 
-		if (existing != just_submitted) {
-			log("SCREAMMMM AFTER ENQUEUE, minibatch_num: " + to_string(minibatch_num) + ", round: " + to_string(round) + ", state num: " + to_string(state_num) + ", node_num: " + to_string(node_num));
-			log("existing: " + to_string(existing) + ", to_submit: " + to_string(just_submitted));
-		}
-	}
-}
-
-ActionDistribution* MCTS_Shared_Data::getNNOutput(int node_num) {
+ActionDistribution* MCTS_Thread_Manager::getNNResult(int node_num) {
 	assertValidNodeNum(node_num);
 	workerWaitForMinibatch(getMinibatchNum(node_num));
-	//return nn_outputs->at(node_num);
+	//return nn_results->at(node_num);
 	return adQueueGet(node_num);
 }
 
-StateVector* MCTS_Shared_Data::getStateVector(int node_num) {
+StateVector* MCTS_Thread_Manager::getStateVector(int node_num) {
 	assertValidNodeNum(node_num);
 	masterWaitForMinibatch(getMinibatchNum(node_num));
 	return nnQueueGet(node_num);
@@ -744,7 +640,7 @@ StateVector* MCTS_Shared_Data::getStateVector(int node_num) {
 
 // make sure thread functions regsiter themselves at beginning of threadFunc
 // and master registers itself at beginning
-void MCTS_Shared_Data::log(string message, bool force) {
+void MCTS_Thread_Manager::log(string message, bool force) {
 	if (!logging && !force) return;
 	cout_mutex.lock();
 	/*string thread_name = thread_names->at(this_thread::get_id());
@@ -764,10 +660,35 @@ void MCTS_Shared_Data::log(string message, bool force) {
 	cout_mutex.unlock();
 }
 
-void MCTS_Shared_Data::registerThreadName(__thread_id tid, string thread_name) {
+void MCTS_Thread_Manager::registerThreadName(__thread_id tid, string thread_name) {
 	cout_mutex.lock();
 	thread_names->insert(pair<__thread_id, string>(tid, thread_name));
 	cout_mutex.unlock();
+}
+
+void MCTS_Thread_Manager::invokePythonScript(string script_file, string infile, string outfile) {
+	shared_data_mutex.lock();
+	num_script_invocations++;
+	shared_data_mutex.unlock();
+
+	char *command = (char *) "python";
+	char script_name[100]; strcpy(script_name, script_file.c_str());
+	char infile_arg[100]; strcpy(infile_arg, infile.c_str());
+	char outfile_arg[100]; strcpy(outfile_arg, outfile.c_str());
+    char *pythonArgs[]={command, script_name, infile_arg, outfile_arg, NULL};
+
+    pid_t parent = getpid();
+    pid_t pid = fork();
+
+    // if child process, do the exec
+    if (pid == 0) {
+    	execvp(command, pythonArgs);
+     }
+
+    // for the parent process, wait till the child completes
+    else {
+        waitpid(pid, NULL, 0);
+    }
 }
 
 

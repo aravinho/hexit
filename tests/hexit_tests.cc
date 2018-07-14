@@ -7,9 +7,9 @@ using namespace std;
 int main()
 {
 	cout << endl << "Beginning Tests..." << endl << endl;
-	//runTictactoeTests();
+	runTictactoeTests();
 	//runMctsTests();
-	runMctsSharedDataTests();
+	runThreadManagerTests();
 	cout << endl << "Finished Tests..." << endl << endl;
 }
 
