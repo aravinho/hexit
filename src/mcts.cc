@@ -169,7 +169,7 @@ void masterFunc(string infile, int num_nodes, int minibatch_size, int num_thread
 		// read in the resulting NN action distributions and write them into the NN output queue
 		data->unparseNNResults(minibatch_num, action_distribution_file, round);
 
-		//data->log("Master finished with minibatch " + to_string(minibatch_num) + " in round " + to_string(round));
+		data->log("Master finished with minibatch " + to_string(minibatch_num) + " in round " + to_string(round));
 
 
 		rounds_per_minibatch->at(minibatch_num)++;

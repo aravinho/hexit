@@ -112,7 +112,7 @@ public:
 	int nextActiveMinibatchNum();
 
 	/* Called by master or worker thread.  Logs the given message after acquiring the cout_lock. */
-	void log(string message);
+	void log(string message, bool force=false);
 
 	/* Called by master or worker thread to register a name for itself. For logging purposes. */
 	void registerThreadName(__thread_id tid, string thread_name);
@@ -148,7 +148,7 @@ private:
 	
 
 	/* Called by worker thread. Marks the given minibatch safe for the master to consume. */
-	void markMasterSafe(int minibatch_num);
+	void markMasterSafe(int minibatch_num, bool from_locked=true);
 
 	/* Called by master thread. Marks the given minibatch safe for workers to touch. */
 	void markWorkerSafe(int minibatch_num);
@@ -168,7 +168,7 @@ private:
 	 * If the number of nodes left to submit for this minibatch is now 0, mark the minibatch as master safe, reset the nodes_left_to_submit counter,
 	 * and signal the master to wake up.
 	 * Returns the new number of nodes left to submit for this minibatch. */
-	int decrementNodesLeft(int node_num, bool lock_needed=true);
+	int decrementNodesLeft(int minibatch_num, int node_num, bool lock_needed=true);
 
 	// experimental
 	/* Returns true if this thread has already processed this node since the last freshening by the master. */

@@ -16,6 +16,7 @@
 
 using namespace std;
 
+bool logging = false;
 
 MCTS_Shared_Data::MCTS_Shared_Data(vector<MCTS_Node*>* all_nodes, int num_nodes, int minibatch_size, int num_threads) {
 	if (num_nodes % minibatch_size != 0) {
@@ -166,7 +167,20 @@ bool MCTS_Shared_Data::threadHasAlreadyProcessed(int node_num, int thread_num) {
 
 	int minibatch_num = getMinibatchNum(node_num);
 	shared_data_mutex.lock();
-	bool already_processed = left_to_submit_per_thread->at(minibatch_num)->at(thread_num) == 0;
+
+	int left_to_process = left_to_submit_per_thread->at(minibatch_num)->at(thread_num);
+	int active_nodes_in_thread = active_nodes_in_minibatch_per_thread->at(minibatch_num)->at(thread_num);
+	bool safe_to_process = true;
+
+	if (active_nodes_in_thread > 0) {
+		if (left_to_process == 0) {
+			safe_to_process = false;
+		}
+	}
+
+	bool already_processed = !safe_to_process;
+
+	//bool already_processed = left_to_submit_per_thread->at(minibatch_num)->at(thread_num) == 0;
 	//bool already_processed = num_submissions_per_thread->at(minibatch_num)->at(thread_num) >= (minibatch_size / num_threads);
 	shared_data_mutex.unlock();
 	return already_processed;
@@ -180,9 +194,34 @@ void MCTS_Shared_Data::workerWaitForNode(int node_num, int thread_num) {
 	int minibatch_num = getMinibatchNum(node_num);
 
 	unique_lock<mutex> minibatch_safe_lock(minibatch_safe_mutex);
-
+	bool waited = false;
 	while (!isWorkerSafe(minibatch_num) || threadHasAlreadyProcessed(node_num, thread_num)) {
+		int reason = 0;
+		if (!isWorkerSafe(minibatch_num)) {
+			reason += 2;
+		}
+		if (threadHasAlreadyProcessed(node_num, thread_num)) {
+			reason += 1;
+		}
+
+		string message;
+		if (reason == 1) {
+			message = " only because this thread has already processed node " + to_string(node_num);
+		}
+		if (reason == 2) {
+			message = " only because minibatch " + to_string(getMinibatchNum(node_num)) + " is not worker safe";
+		}
+		if (reason == 3) {
+			message = " both because minibatch " + to_string(getMinibatchNum(node_num)) + " is not worker safe and because this thread has already processed node " + to_string(node_num);
+		}
+		if (!waited) {
+			log("Worker waiting for node " + to_string(node_num) + message);
+		}
+		waited = true;
 		minibatch_safe_cv.wait(minibatch_safe_lock);
+	}
+	if (waited) {
+		log("Worker DONE waiting for node " + to_string(node_num));
 	}
 }
 
@@ -190,8 +229,16 @@ void MCTS_Shared_Data::workerWaitForNode(int node_num, int thread_num) {
 bool MCTS_Shared_Data::masterWaitForMinibatch(int minibatch_num) {
 	assertValidMinibatchNum(minibatch_num);
 	unique_lock<mutex> minibatch_safe_lock(minibatch_safe_mutex);
+	bool waited = false;
 	while (!isMasterSafe(minibatch_num) && !isMinibatchComplete(minibatch_num)) {
+		if (!waited) {
+			log("Master waiting for minibatch " + to_string(minibatch_num));
+		}
+		waited = true;
 		minibatch_safe_cv.wait(minibatch_safe_lock);
+	}
+	if (waited) {
+		log("Master DONE waiting for minibatch " + to_string(minibatch_num));
 	}
 
 	return isMinibatchComplete(minibatch_num);
@@ -232,7 +279,7 @@ void MCTS_Shared_Data::submitToNNQueue(StateVector* state_vector, int node_num) 
 	if (state_vector == NULL) {
 		throw invalid_argument("submitToNNQueue: Cannot submit a NULL state vector for node " + to_string(node_num));
 	}
-
+	//log("Node " + to_string(node_num) + " is submitting to NN Queue for minibatch " + to_string(getMinibatchNum(node_num)));
 	int minibatch_num = getMinibatchNum(node_num);
 
 	// wait till it's safe to touch this minibatch (it should be already), then submit the state vector
@@ -243,7 +290,7 @@ void MCTS_Shared_Data::submitToNNQueue(StateVector* state_vector, int node_num) 
 		
 	// decrement nodes_left_to_submit for this batch
 	// if last node from this batch to submit, mark batch as master safe, and reset counter
-	int num_nodes_left = decrementNodesLeft(minibatch_num);
+	int num_nodes_left = decrementNodesLeft(minibatch_num, node_num);
 
 	
 }
@@ -341,7 +388,11 @@ void MCTS_Shared_Data::markNodeComplete(int node_num) {
 
 	// TO DO: decide whether this lock is causing problems
 	//shared_data_mutex.lock();
-	active_nodes_in_minibatch->at(minibatch_num) -= 1;
+	int curr_num_active_nodes = active_nodes_in_minibatch->at(minibatch_num);
+	int new_num_active_nodes = curr_num_active_nodes - 1;
+	active_nodes_in_minibatch->at(minibatch_num) = new_num_active_nodes;
+	//log("Node " + to_string(node_num) + " COMPLETED. active_nodes_in_minibatch " + to_string(getMinibatchNum(node_num)) + " updated from " + to_string(curr_num_active_nodes) +
+		//" to " + to_string(new_num_active_nodes));
 
 	bool minibatch_complete = isMinibatchComplete(minibatch_num, false);
 
@@ -361,6 +412,7 @@ void MCTS_Shared_Data::markNodeComplete(int node_num) {
 
 	bool thread_complete = isThreadComplete(thread_num, false);
 	if (thread_complete) {
+		log("THREAD COMPLETE");
 		num_active_threads--;
 	}
 
@@ -372,16 +424,26 @@ void MCTS_Shared_Data::markNodeComplete(int node_num) {
 	prev_active_node->at(next_node) = prev_node;
 
 	//decrement the number of nodes left to submit for this batch
-	decrementNodesLeft(minibatch_num, false);
+	// hack
+	decrementNodesLeft(minibatch_num, node_num);
+	//log("About to grab lock in markNodeComplete for node " + to_string(node_num), true);
+	//shared_data_mutex.lock();
+	//decrementNodesLeft(minibatch_num, node_num, false);
+	//shared_data_mutex.unlock();
+	//log("Released lock in markNodeComplete for node " + to_string(node_num), true);
+	//decrementNodesLeft(minibatch_num, node_num);
 	
 	// TO DO
 	//shared_data_mutex.unlock();
 }
 
 // removing lock and unlock, because is only called from locked context
-void MCTS_Shared_Data::markMasterSafe(int minibatch_num) {
+void MCTS_Shared_Data::markMasterSafe(int minibatch_num, bool from_locked) {
 	assertValidMinibatchNum(minibatch_num);
 	minibatch_ownership->at(minibatch_num) = true;
+	string fl = "from locked context";
+	if (!from_locked) fl = "from UNLOCKED context";
+	log("Minibatch " + to_string(minibatch_num) + " just marked master-safe " + fl);
 }
 
 void MCTS_Shared_Data::markWorkerSafe(int minibatch_num) {
@@ -446,12 +508,14 @@ void MCTS_Shared_Data::logNumQueueSubmissions() {
 	cout_mutex.unlock();
 }
 
-int MCTS_Shared_Data::decrementNodesLeft(int minibatch_num, bool lock_needed) {
+int MCTS_Shared_Data::decrementNodesLeft(int minibatch_num, int node_num, bool lock_needed) {
 	assertValidMinibatchNum(minibatch_num);
 
+	string ln = " from UNLOCKED context";
 	// enter atomic zone
 	if (lock_needed) {
 		shared_data_mutex.lock();
+		ln = " from locked context";
 	}
 
 	// grab the number of nodes in this minibatch left to submit to the NN queue, and subtract 1 (Read only)
@@ -462,6 +526,7 @@ int MCTS_Shared_Data::decrementNodesLeft(int minibatch_num, bool lock_needed) {
 	// if this is the last node from this batch to be submitted, reset that number to the number of active nodes in the minibatch
 	if (minibatch_nn_ready) {
 		num_nodes_left = active_nodes_in_minibatch->at(minibatch_num);
+		//log("num_nodes_left updated from 0 to " + to_string(num_nodes_left) + ln);
 	}
 
 	// make sure there's no error
@@ -471,11 +536,17 @@ int MCTS_Shared_Data::decrementNodesLeft(int minibatch_num, bool lock_needed) {
 
 	// if the node is master-ready, mark it as such
 	if (minibatch_nn_ready) {
-		markMasterSafe(minibatch_num);
+		markMasterSafe(minibatch_num, lock_needed);
 	}
 
 	// now perform the actual update to the nodes_left_to_submit counter variable (Write operation)
-	nodes_left_to_submit->at(minibatch_num) = num_nodes_left;	
+	nodes_left_to_submit->at(minibatch_num) = num_nodes_left;
+	
+	if (lock_needed) {
+		log("Node " + to_string(node_num) + " is decrementing nodes via submission to NN Queue. num_left_to_submit for minibatch " + to_string(minibatch_num) + " updated to " + to_string(num_nodes_left) + ln);	
+	} else {
+		log("Node " + to_string(node_num) + " is decrementing nodes via node completion. num_left_to_submit for minibatch " + to_string(minibatch_num) + " updated to " + to_string(num_nodes_left) + ln);			
+	}
 	
 	if (lock_needed) {
 		shared_data_mutex.unlock();
@@ -673,7 +744,8 @@ StateVector* MCTS_Shared_Data::getStateVector(int node_num) {
 
 // make sure thread functions regsiter themselves at beginning of threadFunc
 // and master registers itself at beginning
-void MCTS_Shared_Data::log(string message) {
+void MCTS_Shared_Data::log(string message, bool force) {
+	if (!logging && !force) return;
 	cout_mutex.lock();
 	/*string thread_name = thread_names->at(this_thread::get_id());
 	
