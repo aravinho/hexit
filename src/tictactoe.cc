@@ -246,11 +246,29 @@ int Tictactoe::winner() {
 }
 
 bool Tictactoe::isTerminalState() {
-	return _is_terminal;
+	if (_reward != 0) {
+		return true;
+	}
+
+	int num_squares_played = 0;
+	for (int sq : this->_sq) {
+		if (sq != 0) {
+			num_squares_played += 1;
+		}
+	}
+
+	return num_squares_played == 9;
 }
 
 int Tictactoe::reward() {
-	return _reward;
+	//return _reward;
+	int num_squares_played = 0;
+	for (int sq : this->_sq) {
+		if (sq != 0) {
+			num_squares_played += 1;
+		}
+	}
+	return _reward * ((NUM_ACTIONS + 1) - num_squares_played);
 }
 
 vector<int> Tictactoe::squares() {
@@ -272,10 +290,10 @@ bool Tictactoe::operator ==(Tictactoe &other) {
 	return true;
 }
 
-Tictactoe Tictactoe::nextState(int action) {
+Tictactoe Tictactoe::nextStateNoPointer(int action) {
 
 	// If the current board is terminal, just return this object.
-	if (_is_terminal) {
+	if (isTerminalState()) {
 		return *this;
 	}
 
@@ -323,6 +341,26 @@ Tictactoe Tictactoe::nextState(int action) {
  	return new_state;*/
 }
 
+Tictactoe* Tictactoe::nextState(int action) {
+
+	// If the current board is terminal, just return this object.
+	if (isTerminalState()) {
+		return this;
+	}
+
+	// make sure given action is legal.
+	if (_sq[action] != 0) {
+		printf("Illegal action in Tictactoe::nextState.\n");
+		exit(1);
+	}
+
+	// for now, just do the simple version (not totally efficient)
+	// change the squares array, and call the Tictactoe constructor
+	vector<int> new_sq(_sq);
+	new_sq[action] = _turn;
+	return new Tictactoe(new_sq);
+}
+
 bool Tictactoe::isLegalAction(int action) {
 	return _legal_actions.count(action) > 0;
 }
@@ -331,6 +369,7 @@ int Tictactoe::randomAction() {
 	int num_legal_moves = _legal_actions.size();
 	if (num_legal_moves == 0) {
 		printf("No legal moves available from this state. \n");
+		printBoard();
 		exit(1);
 	}
 	int r = rand() % num_legal_moves;
@@ -342,3 +381,34 @@ int Tictactoe::randomAction() {
 int Tictactoe::turn() {
 	return _turn;
 }
+
+vector<int>* Tictactoe::makeStateVector() {
+	vector<int>* sv = new vector<int>();
+	for (int s : this->squares()) {
+		sv->push_back(s);
+	}
+	return sv;
+}
+
+int Tictactoe::numActions() {
+	return 9;
+}
+
+string pieceAsString(int piece) {
+	if (piece == 1) return "X";
+	if (piece == -1) return "O";
+	return " ";
+}
+void Tictactoe::printBoard() {
+	cout << "+---+---+---+" << endl;
+	cout << "| " << pieceAsString(_sq[0]) << " | " << pieceAsString(_sq[1]) << " | " << pieceAsString(_sq[2]) << " | " << endl;
+	cout << "+---+---+---+" << endl;
+	cout << "| " << pieceAsString(_sq[3]) << " | " << pieceAsString(_sq[4]) << " | " << pieceAsString(_sq[5]) << " | " << endl;
+	cout << "+---+---+---+" << endl;
+	cout << "| " << pieceAsString(_sq[6]) << " | " << pieceAsString(_sq[7]) << " | " << pieceAsString(_sq[8]) << " | " << endl;
+	cout << "+---+---+---+" << endl;
+
+}
+
+
+

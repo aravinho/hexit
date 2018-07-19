@@ -10,15 +10,14 @@
 
 
 #include "test_thread_manager.h"
-#include "../src/tictactoe.h"
 //#include "../src/mcts.h"
 #include "../src/mcts_thread_manager.h"
 #include "test_utils.h"
 
 
 
-void assertTrueMCTS(bool cond, string test_name, string message) {
-	string test_file = "test_mcts.cc";
+void assertTrueThreadManager(bool cond, string test_name, string message) {
+	string test_file = "test_thread_manager.cc";
 	assertWithMessage(cond, test_file, test_name, message);
 }
 

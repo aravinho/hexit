@@ -9,6 +9,7 @@
 #include "../src/tictactoe.h"
 #include "test_utils.h"
 
+
 vector<int> e = {0,0,0,0,0,0,0,0,0};
 vector<int> p1ws = {1,0,0,1,-1,0,1,0,-1};
 vector<int> p2ws = {1,0,1,-1,-1,-1,0,1,0};
@@ -19,6 +20,7 @@ vector<int> cnw = {1,0,1,-1,-1,1,1,-1,-1};
 vector<int> fm7 = {0,0,0,0,0,0,0,1,0};
 vector<int> bm3 = {1,0,0,-1,-1,0,0,0,1};
 vector<int> wm1 = {1,1,1,-1,-1,1,1,-1,-1};
+
 
 Tictactoe emp;
 Tictactoe p1win_simple(p1ws);
@@ -58,18 +60,18 @@ void testIsTerminalState() {
 
 void testReward() {	
 	assertTrue(emp.reward() == 0, "testReward", "Empty has no winner");
-	assertTrue(p1win_simple.reward() == 1, "testReward", "P1 Simple Win");
-	assertTrue(p2win_simple.reward() == -1, "testReward", "P2 Simple Win");
-	assertTrue(p1win_complex.reward() == 1, "testReward", "P1 Complex Win");
-	assertTrue(p2win_complex.reward() == -1, "testReward", "P2 Complex Win");
+	assertTrue(p1win_simple.reward() == 5, "testReward", "P1 Simple Win");
+	assertTrue(p2win_simple.reward() < 0, "testReward", "P2 Simple Win");
+	assertTrue(p1win_complex.reward() > 0, "testReward", "P1 Complex Win");
+	assertTrue(p2win_complex.reward() < 0, "testReward", "P2 Complex Win");
 	assertTrue(simple_nowin.reward() == 0, "testReward", "Simple no win");
 	assertTrue(complex_nowin.reward() == 0, "testReward", "Complex no win");
 }
 
-void testNextState() {
-	assertTrue(emp.nextState(7) == first_move7, "testNextState", "First move");
-	assertTrue(simple_nowin.nextState(3) == black_move3, "testNextState", "Black Move Square 3");
-	assertTrue(complex_nowin.nextState(1) == white_move1, "testNextState", "White Move Square 1");
+void testnextStateNoPointer() {
+	assertTrue(emp.nextStateNoPointer(7) == first_move7, "testnextStateNoPointer", "First move");
+	assertTrue(simple_nowin.nextStateNoPointer(3) == black_move3, "testnextStateNoPointer", "Black Move Square 3");
+	assertTrue(complex_nowin.nextStateNoPointer(1) == white_move1, "testnextStateNoPointer", "White Move Square 1");
 }
 
 void testIsLegalAction() {
@@ -111,11 +113,11 @@ void runTictactoeTests() {
 	// seed RNG
 	srand(time(NULL));
 
-	cout << "Testing Tictactoe..." << endl << endl;
+	cout << "Testing Tictactoe..." << endl;
 	testWinner();
 	testIsTerminalState();
 	testReward();
-	testNextState();
+	testnextStateNoPointer();
 	testIsLegalAction();
 	testRandomAction();
 	testTurn();

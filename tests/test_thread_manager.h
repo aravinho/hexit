@@ -1,4 +1,4 @@
-#ifndef TEST_MCTS_H
+#ifndef TEST_THREAD_MANAGER_H
 
 using namespace std;
 

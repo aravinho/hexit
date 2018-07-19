@@ -63,7 +63,12 @@ public:
 	 * from the current board.
 	 * Errors if the given action is illegal.
 	 */
-	Tictactoe nextState(int action);
+	Tictactoe nextStateNoPointer(int action);
+
+	/**
+	 * Same as above, but returns a pointer to the new Tictactoe instance.
+	 */
+	Tictactoe* nextState(int action);
 	
 	/**
 	 * Return true if the given action is legal to take from the current board.
@@ -81,6 +86,14 @@ public:
 	 * Error if the board is invalid or in a terminal state.
 	 */
 	int turn();
+
+	/* Just calls squares.  In the HexState, this will be more complicated. */
+	vector<int>* makeStateVector();
+
+	/* Returns the number of actions for this game. (9). */
+	int numActions();
+
+	void printBoard();
 
 private:
 	
