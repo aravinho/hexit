@@ -180,6 +180,7 @@ MCTS_Node* propagateStats(MCTS_Node* node);
 MCTS_Node* rolloutSimulation(MCTS_Node* node);
 
 MCTS_Node* runAllSimulations(MCTS_Node* node, ActionDistribution* ad, int max_depth);
+void writeBatchToFile(vector<MCTS_Node*>* nodes, string base_filename);
 
 
 

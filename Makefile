@@ -1,12 +1,18 @@
-SRC_OBJ_FILES	= obj/tictactoe.o obj/mcts.o obj/mcts-thread-manager.o obj/hex-state.o obj/play-hex.o
-TEST_EXE_FILE 	= hexit-tests
+SRC_OBJ_FILES	= obj/tictactoe.o obj/mcts.o obj/mcts-thread-manager.o obj/hex-state.o obj/play-hex.o obj/gui.o obj/main.o
+TEST_EXE_FILE 	= bin/hexit-tests
 TEST_OBJ_FILES	= obj/hexit-tests.o obj/test-tictactoe.o obj/test-thread-manager.o obj/test-utils.o obj/test-mcts.o
-PLAY_EXE_FILE 	= play-hex
+PLAY_EXE_FILE 	= bin/play-hex
+MAIN_OBJ_FILES	= obj/tictactoe.o obj/mcts.o obj/main.o
+MAIN_EXE_FILE	= bin/main-exe
 
-SRC_HEADER_FILES = src/tictactoe.h src/mcts.h src/hex_state.h src/thread_manager.h src/play_hex.h
-SRC_CC_FILES = src/tictactoe.cc src/mcts.cc src/hex_state.cc src/thread_manager.cc src/play_hex.cc
+SRC_HEADER_FILES = src/tictactoe.h src/mcts.h src/hex_state.h src/thread_manager.h src/play_hex.h src/gui.h src/main.h
+SRC_CC_FILES = src/tictactoe.cc src/mcts.cc src/hex_state.cc src/thread_manager.cc src/play_hex.cc src/gui.cc src/main.cc
 TEST_HEADER_FILES = tests/test_tictactoe.h tests/test_utils.h tests/test_thread_manager.h tests/test_mcts.h
 TEST_CC_FILES = tests/
+
+CC_OPTIONS = -fno-rtti -fno-exceptions -fstrict-aliasing -Wall -D__WXMSW__ -D__GNUWIN32__ -D__WIN95__ #-fno-pcc-struct-return -fvtable-thunks
+LINKER_OPTIONS = -lwxmsw -lole32 -lwsock32 -lcomctl32 -lctl3d32 -lgcc -lstdc++ -lshell32 -loleaut32 -ladvapi32 -luuid -lodbc32
+#(https://wiki.wxwidgets.org/Writing_Your_First_Application-Introduction)
 
 CC	= g++ -std=c++11
 INC_FLAGS = -I src -I tests
@@ -17,11 +23,17 @@ play: $(PLAY_EXE_FILE)
 check : $(TEST_EXE_FILE)
 	./$(TEST_EXE_FILE)
 
+main: $(MAIN_EXE_FILE)
+	./$(MAIN_EXE_FILE)
+
+$(MAIN_EXE_FILE): $(MAIN_OBJ_FILES)
+	$(CC) -o $(MAIN_EXE_FILE) $(MAIN_OBJ_FILES)
+
 $(PLAY_EXE_FILE): $(SRC_OBJ_FILES)
-	$(CC) -o $(PLAY_EXE_FILE) $(SRC_OBJ_FILES)
+	$(CC) -o $(LINKER_OPTIONS) $(PLAY_EXE_FILE) $(SRC_OBJ_FILES)
 
 $(TEST_EXE_FILE): $(SRC_OBJ_FILES) $(TEST_OBJ_FILES)
-	$(CC) -o $(TEST_EXE_FILE) $(TEST_OBJ_FILES) $(SRC_OBJ_FILES)
+	$(CC) -o $(LINKER_OPTIONS) $(TEST_EXE_FILE) $(TEST_OBJ_FILES) $(SRC_OBJ_FILES)
 
 # Test Objects
 obj/hexit-tests.o: tests/hexit_tests.cc tests/test_tictactoe.h
@@ -55,3 +67,10 @@ obj/mcts-thread-manager.o: src/mcts_thread_manager.cc src/mcts_thread_manager.h 
 
 obj/play-hex.o: src/play_hex.cc src/play_hex.h src/mcts.h
 	$(CC) -c -o obj/play-hex.o $(INC_FLAGS) src/play_hex.cc
+
+obj/gui.o: src/gui.cc src/gui.h
+	$(CC) -c -o obj/gui.o $(INC_FLAGS) src/gui.cc
+
+obj/main.o: src/main.cc src/main.h
+	$(CC) -c -o obj/main.o $(INC_FLAGS) src/main.cc
+

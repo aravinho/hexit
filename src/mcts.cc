@@ -17,6 +17,7 @@
 #include <math.h> // log
 #include <random>
 #include <cfloat>       // std::numeric_limits
+#include <dirent.h>
 
 
 
@@ -621,6 +622,63 @@ MCTS_Node* runAllSimulations(MCTS_Node* node, ActionDistribution* ad, int max_de
 		node = runMCTS(node, ad, max_depth);
 	}
 	return node;
+}
+
+string actionDistAsCSVString(vector<int>* action_counts, int total_num_simulations) {
+	string s = "";
+	for (int pos = 0; pos < action_counts->size(); pos++) {
+		s += to_string(action_counts->at(pos) / (double) total_num_simulations);
+		if (pos != action_counts->size() - 1) {
+			s += ", ";
+		}
+	}
+	return s;
+}
+
+
+void writeBatchToFile(vector<MCTS_Node*>* nodes, string base_filename) {
+	string x_filename = base_filename + "/data.csv";
+	string y_filename = base_filename + "/labels.csv";
+
+	// create the subdirectory if it doesnt exist
+	/*string mkdir_command_str = "mkdir -p " + base_filename;
+	const char mkdir_command[100]; strcpy(mkdir_command, mkdir_command_str.c_str());
+	char *command = (char *) "python";
+	char script_name[100]; strcpy(script_name, script_file.c_str());
+	char infile_arg[100]; strcpy(infile_arg, infile.c_str());
+	char outfile_arg[100]; strcpy(outfile_arg, outfile.c_str());
+    char *pythonArgs[]={command, script_name, infile_arg, outfile_arg, NULL};*/
+
+	if (opendir(base_filename.c_str()) == NULL) {
+		const int dir_err = system(("mkdir -p " + base_filename).c_str());
+		if (dir_err == -1) {
+			throw invalid_argument("Unable to create directory" + base_filename);
+		}
+	}
+	
+
+	ofstream x_file (x_filename);
+  	if (x_file.is_open()) {
+  		for (MCTS_Node* node : *nodes) {
+  			x_file << node->state->asCSVString() << "\n";
+  		}
+    	x_file.close();
+  	}
+  	else {
+  		throw invalid_argument("Unable to open file " + x_filename);
+  	}
+
+  	ofstream y_file (y_filename);
+  	if (y_file.is_open()) {
+  		for (MCTS_Node* node : *nodes) {
+  			vector<int>* action_counts = node->getActionCounts();
+  			y_file << actionDistAsCSVString(action_counts, node->total_num_simulations) << "\n";
+  		}
+    	y_file.close();
+  	}
+  	else {
+  		throw invalid_argument("Unable to open file " + y_filename);
+  	}
 }
 
 

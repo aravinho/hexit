@@ -203,7 +203,7 @@ int processMinorDiag(vector<int> squares, set<int> &legal_actions, set<int> &win
 Tictactoe::Tictactoe(vector<int> squares) {
 	
 	int turn = 0;
-	int is_terminal = false;
+	//int is_terminal = false;
 	int reward = 0;
 	set<int> legal_actions;
 	set<int> winning_actions;
@@ -408,6 +408,32 @@ void Tictactoe::printBoard() {
 	cout << "| " << pieceAsString(_sq[6]) << " | " << pieceAsString(_sq[7]) << " | " << pieceAsString(_sq[8]) << " | " << endl;
 	cout << "+---+---+---+" << endl;
 
+}
+
+string Tictactoe::asCSVString() {
+	string s = "";
+	for (int pos = 0; pos < NUM_ACTIONS; pos++) {
+		s += to_string(_sq[pos]);
+		if (pos != NUM_ACTIONS - 1) {
+			s += ", ";
+		}
+	}
+	return s;
+}
+
+Tictactoe* generateRandomTictactoeBoard() {
+	Tictactoe* board = new Tictactoe();
+	int total_num_moves = rand() % NUM_ACTIONS;
+	int num_moves_made = 0;
+	while (!board->isTerminalState() && num_moves_made < total_num_moves) {
+		int action = board->randomAction();
+		Tictactoe* new_board = board->nextState(action);
+		if (new_board->isTerminalState()) {
+			return board;
+		}
+		board = new_board;
+	}
+	return board;
 }
 
 

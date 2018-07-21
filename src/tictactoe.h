@@ -95,6 +95,8 @@ public:
 
 	void printBoard();
 
+	string asCSVString();
+
 private:
 	
 	/** 
@@ -142,5 +144,8 @@ int processMajorDiag(vector<int> squares, set<int> &legal_actions, set<int> &win
  * Populate the sets legal_actions, and winning_actions appropriately.
  */
 int processMinorDiag(vector<int> squares, set<int> &legal_actions, set<int> &winning_actions);
+
+/* Generates a random board, and returns the associated Tictactoe instance. */
+Tictactoe* generateRandomTictactoeBoard();
 
 #endif
