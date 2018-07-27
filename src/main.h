@@ -1,7 +1,7 @@
 #ifndef MAIN_H
 #define MAIN_H
 
-#include "mcts.h"
+#include "mcts_thread_manager.h"
 #include <vector>
 
 #endif

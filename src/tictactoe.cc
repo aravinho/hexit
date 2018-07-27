@@ -140,7 +140,7 @@ int processMajorDiag(vector<int> squares, set<int> &legal_actions, set<int> &win
 
 		// compute possible winning moves
 		if (perm == 12 * turn) {
-			winning_actions.insert(diag[2]);
+			winning_actions.insert(diag[0]);
 		}
 		if (perm == 10 * turn) {
 			winning_actions.insert(diag[1]);
@@ -184,7 +184,7 @@ int processMinorDiag(vector<int> squares, set<int> &legal_actions, set<int> &win
 
 		// compute possible winning moves
 		if (perm == 12 * turn) {
-			winning_actions.insert(diag[2]);
+			winning_actions.insert(diag[0]);
 		}
 		if (perm == 10 * turn) {
 			winning_actions.insert(diag[1]);
@@ -238,6 +238,10 @@ Tictactoe::Tictactoe(vector<int> squares) {
 	_legal_actions = legal_actions;
 	_winning_actions = winning_actions;
 
+}
+
+Tictactoe::~Tictactoe() {
+	
 }
 
 
@@ -415,7 +419,7 @@ string Tictactoe::asCSVString() {
 	for (int pos = 0; pos < NUM_ACTIONS; pos++) {
 		s += to_string(_sq[pos]);
 		if (pos != NUM_ACTIONS - 1) {
-			s += ", ";
+			s += ",";
 		}
 	}
 	return s;

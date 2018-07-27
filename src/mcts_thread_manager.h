@@ -21,7 +21,7 @@ class MCTS_Thread_Manager {
 public:
 
 	/* Initializes all the shared data to the appropriate initial values. */
-	MCTS_Thread_Manager(vector<MCTS_Node*>* all_nodes, int num_nodes=64, int minibatch_size=16, int num_threads=4);
+	MCTS_Thread_Manager(vector<MCTS_Node*>* all_nodes, int num_nodes=64, int minibatch_size=16, int num_threads=4, int num_actions=9);
 
 
 	
@@ -57,10 +57,16 @@ public:
 	int nextActiveMinibatchNum();
 
 
+	/* Returns a pointer to the vector of all nodes. */
+	vector<MCTS_Node*>* getAllNodes();
 
 
 	/* Called by worker thread.  Returns a pointer to the node indexed by node_num. */
 	MCTS_Node* getNode(int node_num);
+
+	/* Sets the given node in the queue of nodes. */
+	void setNode(int node_num, MCTS_Node* node);
+
 	
 	/* Called by master thread. Returns a pointer to the StateVector (from the nn_queue) indexed by node_num. */
 	StateVector* getStateVector(int node_num);
@@ -106,10 +112,21 @@ public:
 	
 
 	/* Called by master or worker thread.  Logs the given message after acquiring the cout_lock. */
-	void log(string message, bool force=false);
+	void log(string message, bool force=false, bool suppress=false);
 
 	/* Called by master or worker thread to register a name for itself. For logging purposes. */
 	void registerThreadName(__thread_id tid, string thread_name);
+
+
+
+	/* Returns the index of the minibatch corresponding to the given node. */
+	int getMinibatchNum(int node_num); // private
+
+	/* Returns the index of the thread responsible for the given node. */
+	int getThreadNum(int node_num); // private
+
+	/* Called by worker or master thread.  Returns the number of active nodes left in this minibatch. */
+	int numActiveNodesInMinibatch(int minibatch_num); // private
 
 
 	
@@ -118,6 +135,10 @@ public:
 
 	/* Calls the given Python script, passing the infile and outfile as args. */
 	void invokePythonScript(string script_file, string infile, string outfile);
+
+	/* Calls the given Python script, passing the input state vector file, the model dir, and the output action distribution file as args. */
+	void invokeNNScript(string script_file, string state_vector_file, string model_dirname, string action_distribution_file);
+
 
 
 private:
@@ -166,17 +187,10 @@ private:
 	/* Called by worker threads. Returns the number of active nodes left for this thread. */
 	int numActiveNodesInThread(int thread_num);
 
-	/* Called by worker or master thread.  Returns the number of active nodes left in this minibatch. */
-	int numActiveNodesInMinibatch(int minibatch_num);
+	
 
 	/* Called by master or worker. Returns the number of active minibatches. */
 	int numActiveMinibatches();
-
-	/* Returns the index of the minibatch corresponding to the given node. */
-	int getMinibatchNum(int node_num);
-
-	/* Returns the index of the thread responsible for the given node. */
-	int getThreadNum(int node_num);
 
 	/* Throws error if this is not a valid thread number. */
 	void assertValidThreadNum(int thread_num);
@@ -206,6 +220,7 @@ private:
 
 
 	int num_nodes;
+	int num_actions;
 	int minibatch_size;
 	int num_minibatches;
 	int num_threads;

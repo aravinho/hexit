@@ -10,6 +10,7 @@
 #include <mutex>
 #include <string>
 #include <random>
+#include <math.h> // log
 
 
 
@@ -24,6 +25,9 @@ public:
 	vector<int>* squares;
 	StateVector(vector<int>* squares);
 	vector<int>* asVector();
+	string asCSVString(bool log=false);
+
+	~StateVector();
 };
 
 
@@ -33,9 +37,12 @@ public:
 	ActionDistribution(int z);
 
 	// new 
-	vector<int>* action_dist;
-	ActionDistribution(vector<int>* action_dist);
-	vector<int>* asVector();
+	vector<double>* action_dist;
+	ActionDistribution(vector<double>* action_dist);
+	ActionDistribution(int num_actions, string csv_line, char delimiter=',');
+	vector<double>* asVector();
+
+	~ActionDistribution();
 };
 
 
@@ -49,6 +56,9 @@ public:
 	MCTS_Node* setX(int x);
 	bool isComplete();
 	int num_queries_required, num_queries_performed;
+
+	~MCTS_Node();
+	void deleteTree(bool log=false); // deletes all children but just keeps the root
 
 
 
@@ -175,12 +185,17 @@ StateVector* processMCTSNode(MCTS_Node* node, ActionDistribution* ad);
 
 // experimental below
 
-MCTS_Node* runMCTS(MCTS_Node* node, ActionDistribution* ad, int max_depth);
+MCTS_Node* runMCTS(MCTS_Node* node, ActionDistribution* ad, int max_depth, bool log=false);
 MCTS_Node* propagateStats(MCTS_Node* node);
 MCTS_Node* rolloutSimulation(MCTS_Node* node);
 
 MCTS_Node* runAllSimulations(MCTS_Node* node, ActionDistribution* ad, int max_depth);
-void writeBatchToFile(vector<MCTS_Node*>* nodes, string base_filename);
+void writeBatchToFile(vector<MCTS_Node*>* nodes, string base_dirname, int states_per_file=pow(2, 20));
+void generateRandomDataBatch(int num_states, string base_dirname, int num_simulations=1000, int max_depth=5, int states_per_file=pow(2, 20), int log_every=pow(2,15));
+
+string createDir(string dirname);
+
+int nextAvailableFileNum(string dirname);
 
 
 

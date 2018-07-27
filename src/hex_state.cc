@@ -4,6 +4,12 @@
 
 using namespace std;
 
-bool HexState::isTerminalState() {
-	return true;
+
+HexState::HexState(int dimension, vector<int> board) {
+	this->board = board;
 }
+
+int HexState::winner() {
+	return 0;
+}
+

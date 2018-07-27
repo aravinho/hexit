@@ -14,10 +14,11 @@
 #include <fstream>
 #include <stdexcept>
 #include <stdlib.h>
-#include <math.h> // log
 #include <random>
 #include <cfloat>       // std::numeric_limits
 #include <dirent.h>
+#include <sstream>
+
 
 
 
@@ -30,7 +31,7 @@ double SOFTMAX_BASE = 2.7; // e?
 std::random_device global_rd;  //Will be used to obtain a seed for the random number engine
 std::mt19937 global_rng(global_rd()); //Standard mersenne_twister_engine seeded with rd()
 
-bool print_enabled = false;
+bool print_enabled = true;
 
 void print(string message) {
 	if (print_enabled) {
@@ -124,15 +125,60 @@ MCTS_Node* MCTS_Node::setX(int x) {
 StateVector::StateVector(vector<int>* squares) {
 	this->squares = squares;
 }
+
+StateVector::~StateVector() {
+	delete this->squares;
+}
 vector<int>* StateVector::asVector() {
 	return this->squares;
 }
 
-ActionDistribution::ActionDistribution(vector<int>* action_dist) {
+vector<std::string> split(const std::string& s, char delimiter)
+{
+   std::vector<std::string> tokens;
+   std::string token;
+   std::istringstream tokenStream(s);
+   while (std::getline(tokenStream, token, delimiter))
+   {
+      tokens.push_back(token);
+   }
+   return tokens;
+}
+
+string StateVector::asCSVString(bool log) {
+	string s = "";
+
+	for (int pos = 0; pos < this->squares->size(); pos++) {
+		s += to_string(this->squares->at(pos));
+		if (pos != this->squares->size() - 1) {
+			s += ",";
+		}
+	}
+
+	return s;
+}
+
+ActionDistribution::ActionDistribution(vector<double>* action_dist) {
 	this->action_dist = action_dist;
 }
 
-vector<int>* ActionDistribution::asVector() {
+ActionDistribution::ActionDistribution(int num_actions, string csv_line, char delimiter) {
+	vector<double>* action_dist = new vector<double>(num_actions);
+	string token;
+	istringstream token_stream(csv_line);
+	while (getline(token_stream, token, delimiter)) {
+		double d = stod(token);
+		action_dist->push_back(d);
+	}
+	this->action_dist = action_dist;
+}	
+
+ActionDistribution::~ActionDistribution() {
+	if (this->action_dist != NULL) {
+		delete this->action_dist;
+	}
+}
+vector<double>* ActionDistribution::asVector() {
 	return this->action_dist;
 }
 
@@ -162,6 +208,53 @@ MCTS_Node::MCTS_Node(Tictactoe* state, bool is_root, int num_simulations) {
 
 	this->sample_actions = true;
 
+}
+
+MCTS_Node::~MCTS_Node() {
+	
+	// delete hex state eventually
+	// delete hex_state;
+
+	// delete tictactoe state
+	if (this->state != NULL) {
+		delete this->state;
+	}
+
+	/*// delete StateVector (this is causing problems)
+	if (this->state_vector != NULL) {
+		delete this->state_vector;
+	}*/
+
+	//FOR NOT DO NOT delete ActionDistribution
+	
+	// do not delete root or parent pointers
+
+	// delete all N and R vectors
+	if (this->num_edge_traversals != NULL) {
+		delete this->num_edge_traversals; // n(s,a)
+	}
+	
+	if (this->edge_rewards != NULL) {
+		delete this->edge_rewards; // r(s, a)
+	}
+
+	if (this->num_edge_traversals_rave != NULL) {
+		delete this->num_edge_traversals_rave; // n(s,a)-rave
+	}
+
+	if (this->edge_rewards_rave != NULL) {
+		delete this->edge_rewards_rave; // r(s,a)-rave
+	}
+
+	// delete each child recursively
+	for (MCTS_Node* child : *children) {
+		if (child != NULL) {
+			delete child;
+		}
+	}
+
+
+	
 }
 
 MCTS_Node* MCTS_Node::sampleActions(bool sample_actions) {
@@ -402,7 +495,6 @@ int sampleProportionalToWeights(vector<double>* weights) {
 	}
 
 	double r = randomDouble(0, accum_sum);
-	print("R: " + to_string(r));
 	for (int pos = 1; pos < weights->size() + 1; pos++) {
 		if (r <= thresholds->at(pos - 1)) {
 			return pos - 1;
@@ -410,6 +502,7 @@ int sampleProportionalToWeights(vector<double>* weights) {
 	} 
 
 	cout << "Error: cannot properly sample a legal action!" << endl;
+	printDoubleVector(weights, "weights");
 	exit(1);
 }
 
@@ -435,7 +528,16 @@ int MCTS_Node::sampleLegalAction(vector<double>* action_dist) {
 	for (int action_num = 0; action_num < this->num_actions; action_num++) {
 		softmax_scores->at(action_num) = softmax_numerators->at(action_num) / softmax_denominator;
 	}
-	//printDoubleVector(softmax_scores, "softmax");
+
+	if (softmax_denominator == 0) {
+		print("Softmax denominator is 0");
+		if (this->isTerminal()) {
+			print("TERMINAL");
+		} else {
+			print("NOT TERMINAL");
+		}
+		printDoubleVector(action_dist, "action_dist");
+	}
 
 	return sampleProportionalToWeights(softmax_scores);
 
@@ -462,16 +564,13 @@ MCTS_Node* MCTS_Node::chooseBestAction() {
 		return this;
 	}
 
-	this->printNode("Choosing action for state. Depth=" + to_string(this->getDepth()));
 	vector<double>* action_scores = this->computeActionScores();
 	int best_action;
 	if (this->sample_actions) {
 		best_action = sampleLegalAction(action_scores);
 	} else {
-		print("taking best legal action");
 		best_action = bestLegalAction(action_scores);
 	}
-	print("Chose action " + to_string(best_action) + "\n");
 	
 	
 	MCTS_Node* child_node = this->makeChild(best_action);
@@ -562,8 +661,26 @@ void MCTS_Node::printStats() {
 	printUCT();
 }
 
+void MCTS_Node::deleteTree(bool log) {
+	if (!this->isRoot()) {
+		cout << "Error: cannot delete a tree starting from a non-root" << endl;
+		exit(1);
+	}
+	if (log && !this->simulationsFinished()) {
+		print("DELETING TREE BUT SIMS NOT FINISHED");
+	}
 
-MCTS_Node* runMCTS(MCTS_Node* node, ActionDistribution* ad, int max_depth) {
+	for (MCTS_Node* child : *this->children) {
+		if (child != NULL) {
+			delete child;
+		}
+	}
+	if (log && !this->simulationsFinished()) {
+		print("After deleting all children,SIMULATIONS FINISHED IS FALSE");
+	}
+}
+
+MCTS_Node* runMCTS(MCTS_Node* node, ActionDistribution* ad, int max_depth, bool log) {
 
 	MCTS_Node* curr_node = node;
 
@@ -573,6 +690,13 @@ MCTS_Node* runMCTS(MCTS_Node* node, ActionDistribution* ad, int max_depth) {
 
 		// if we are at the root and have finished all the simulations, break
 		if (curr_node->isRoot() && curr_node->simulationsFinished()) {
+			if (log) {
+				print("deleting tree, simulations finished: " + to_string(curr_node->simulationsFinished()));
+			}
+			curr_node->deleteTree(log);
+			if (log) {
+				print("successfully deleted tree, simulations finished: " + to_string(curr_node->simulationsFinished()));
+			}
 			break;
 		}
 
@@ -581,9 +705,6 @@ MCTS_Node* runMCTS(MCTS_Node* node, ActionDistribution* ad, int max_depth) {
 
 			double reward = ((double) curr_node->state->reward());
 			curr_node = propagateStats(curr_node); // should return root node
-			print("Reward for simulation " + to_string(curr_node->numSimulationsFinished() -1) + ": " + to_string(reward) + "\n\n");
-			print("BEGIN SIMULATION " + to_string(curr_node->numSimulationsFinished()));
-
 			continue;
 		}
 
@@ -613,6 +734,9 @@ MCTS_Node* runMCTS(MCTS_Node* node, ActionDistribution* ad, int max_depth) {
 	}
 
 	//*node = *curr_node;
+	if (log && curr_node->simulationsFinished()) {
+		print("SIMULATIONS ARE FINISHED");
+	}
 	return curr_node;
 }
 
@@ -626,63 +750,225 @@ MCTS_Node* runAllSimulations(MCTS_Node* node, ActionDistribution* ad, int max_de
 
 string actionDistAsCSVString(vector<int>* action_counts, int total_num_simulations) {
 	string s = "";
+	assert (action_counts != NULL);
+	
 	for (int pos = 0; pos < action_counts->size(); pos++) {
 		s += to_string(action_counts->at(pos) / (double) total_num_simulations);
 		if (pos != action_counts->size() - 1) {
-			s += ", ";
+			s += ",";
 		}
 	}
 	return s;
 }
 
-
-void writeBatchToFile(vector<MCTS_Node*>* nodes, string base_filename) {
-	string x_filename = base_filename + "/data.csv";
-	string y_filename = base_filename + "/labels.csv";
-
-	// create the subdirectory if it doesnt exist
-	/*string mkdir_command_str = "mkdir -p " + base_filename;
-	const char mkdir_command[100]; strcpy(mkdir_command, mkdir_command_str.c_str());
-	char *command = (char *) "python";
-	char script_name[100]; strcpy(script_name, script_file.c_str());
-	char infile_arg[100]; strcpy(infile_arg, infile.c_str());
-	char outfile_arg[100]; strcpy(outfile_arg, outfile.c_str());
-    char *pythonArgs[]={command, script_name, infile_arg, outfile_arg, NULL};*/
-
-	if (opendir(base_filename.c_str()) == NULL) {
-		const int dir_err = system(("mkdir -p " + base_filename).c_str());
+string createDir(string dirname) {
+	if (opendir(dirname.c_str()) == NULL) {
+		const int dir_err = system(("mkdir -p " + dirname).c_str());
 		if (dir_err == -1) {
-			throw invalid_argument("Unable to create directory" + base_filename);
+			throw invalid_argument("Unable to create directory" + dirname);
 		}
 	}
-	
+	return dirname;
+}
 
-	ofstream x_file (x_filename);
-  	if (x_file.is_open()) {
-  		for (MCTS_Node* node : *nodes) {
-  			x_file << node->state->asCSVString() << "\n";
-  		}
-    	x_file.close();
-  	}
-  	else {
-  		throw invalid_argument("Unable to open file " + x_filename);
-  	}
+void writeStatesToFile(vector<MCTS_Node*>* nodes, string dirname, int states_per_file, int next_file_num) {
 
-  	ofstream y_file (y_filename);
-  	if (y_file.is_open()) {
-  		for (MCTS_Node* node : *nodes) {
-  			vector<int>* action_counts = node->getActionCounts();
-  			y_file << actionDistAsCSVString(action_counts, node->total_num_simulations) << "\n";
-  		}
-    	y_file.close();
-  	}
-  	else {
-  		throw invalid_argument("Unable to open file " + y_filename);
-  	}
+  	string x_filename;
+	ofstream x_file;
+	MCTS_Node* node;
+	int file_num;
+
+	for (int node_num = 0; node_num < nodes->size(); node_num++) {
+
+		// open a new file if necessary
+		if (node_num % states_per_file == 0) {
+			file_num = next_file_num + (node_num / states_per_file);
+			x_filename = dirname + to_string(file_num) + ".csv";
+			x_file = ofstream(x_filename);
+		}
+
+		// make sure file was opened properly
+		if (!x_file.is_open()) {
+			throw invalid_argument("Unable to open file " + x_filename);
+		}
+
+		// write the node's state
+		node = nodes->at(node_num);
+		x_file << node->state->asCSVString() << "\n";
+
+		// close the current file if necessary
+		if ((node_num + 1) % states_per_file == 0) {
+			x_file.close();
+		}
+	}
+
+	// close the last file if needed
+	if (x_file.is_open()) {
+		x_file.close();
+	}
+
+   
 }
 
 
 
+void writeLabelsToFile(vector<MCTS_Node*>* nodes, string dirname, int states_per_file, int next_file_num) {
+
+  	string y_filename;
+	ofstream y_file;
+	MCTS_Node* node;
+	vector<int>* action_counts;
+	int file_num;
+
+	for (int node_num = 0; node_num < nodes->size(); node_num++) {
+
+		// open a new file if necessary
+		if (node_num % states_per_file == 0) {
+			file_num = next_file_num + (node_num / states_per_file);
+			y_filename = dirname + to_string(file_num) + ".csv";
+			y_file = ofstream(y_filename);
+		}
+
+		// make sure file was opened properly
+		if (!y_file.is_open()) {
+			throw invalid_argument("Unable to open file " + y_filename);
+		}
+
+		// write the node's action distribution
+		node = nodes->at(node_num);
+		action_counts = node->getActionCounts();
+		y_file << actionDistAsCSVString(action_counts, node->total_num_simulations) << "\n";
+
+		// close the current file if necessary
+		if ((node_num + 1) % states_per_file == 0) {
+			y_file.close();
+		}
+	}
+
+	// close the last file if needed
+	if (y_file.is_open()) {
+		y_file.close();
+	}
+
+   
+}
+
+// polish this
+int nextAvailableFileNum(string dirname) {
+	
+	int highest_file_num = 0;
+
+	struct dirent *entry;
+    DIR *dp;
+
+    dp = opendir(dirname.c_str());
+    if (dp == NULL) {
+        perror("opendir: Path does not exist or could not be read.");
+        return -1;
+    }
+
+    while ((entry = readdir(dp))) {
+        string filename = string(entry->d_name);
+
+        if (filename.size() < 4) {
+        	continue;
+        }
+
+        string ext = filename.substr(filename.size() - 4);
+        if (ext != ".csv") {
+        	continue;
+        }
+        string filename_no_ext = filename.substr(0, filename.size() -4);
+        int file_num = stoi(filename_no_ext);
+		if (file_num > highest_file_num) {
+			highest_file_num = file_num;
+		}
+    }
+
+    closedir(dp);
+
+    return highest_file_num + 1;
+
+	
+}
+
+void writeBatchToFile(vector<MCTS_Node*>* nodes, string base_dirname, int states_per_file) {
+
+	string x_dirname, y_dirname;
+
+	if (base_dirname.back() != '/') {
+		x_dirname = base_dirname + "/data/";
+		y_dirname = base_dirname + "/labels/";
+	} else {
+		x_dirname = base_dirname + "data/";
+		y_dirname = base_dirname + "labels/";
+	}
+
+	// create directories (including necessary parent directories) if they do not exist
+	createDir(x_dirname);
+	createDir(y_dirname);
+
+	// if there are already data files in this directory, make sure we do not override them
+	int next_x_file_num = nextAvailableFileNum(x_dirname);
+	int next_y_file_num = nextAvailableFileNum(y_dirname);
+	assert(next_x_file_num = next_y_file_num);
+
+	// write the training data to files
+	cout << "Writing states to file" << endl;
+	writeStatesToFile(nodes, x_dirname, states_per_file, next_x_file_num);
+	cout << "Writing labels to file" << endl;
+	writeLabelsToFile(nodes, y_dirname, states_per_file, next_y_file_num);
+}
+
+pair<string, string> prepareDirectories(string base_dirname) {
+
+	string x_dirname, y_dirname;
+
+	if (base_dirname.back() != '/') {
+		x_dirname = base_dirname + "/data/";
+		y_dirname = base_dirname + "/labels/";
+	} else {
+		x_dirname = base_dirname + "data/";
+		y_dirname = base_dirname + "labels/";
+	}
+
+	// create directories (including necessary parent directories) if they do not exist
+	createDir(x_dirname);
+	createDir(y_dirname);
+
+	return make_pair(x_dirname, y_dirname);
+
+}
+
+// for now, each file will only have a "small" number of states - the number of states which the vector can hold in memory
+void generateRandomDataBatch(int num_states, string base_dirname, int num_simulations, int max_depth, int states_per_file, int log_every) {
+
+	// create dummy ad
+	vector<double>* dummy_ad_vec = new vector<double>(9, 0.0);
+	ActionDistribution* dummy_ad = new ActionDistribution(dummy_ad_vec);
+
+	Tictactoe* board;
+	MCTS_Node* node;
+	vector<MCTS_Node*>* nodes = new vector<MCTS_Node*>(num_states);
+
+	for (int state_num = 0; state_num < num_states; state_num++) {
+
+		// log if necessary
+		if (state_num % log_every == 0) {
+			cout << "Processing state " << state_num << endl;
+		}
+
+		// create the node for this state and run all simulations
+		board = generateRandomTictactoeBoard();
+		node = (new MCTS_Node(board, true, num_simulations))->sampleActions(true);
+		node = runAllSimulations(node, dummy_ad, max_depth);
+		nodes->at(state_num) = node;
+		
+	}
+
+	writeBatchToFile(nodes, base_dirname, states_per_file);
+
+}
 
 
 

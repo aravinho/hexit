@@ -15,9 +15,9 @@
 
 using namespace std;
 
-bool logging = false;
+bool logging = true;
 
-MCTS_Thread_Manager::MCTS_Thread_Manager(vector<MCTS_Node*>* all_nodes, int num_nodes, int minibatch_size, int num_threads) {
+MCTS_Thread_Manager::MCTS_Thread_Manager(vector<MCTS_Node*>* all_nodes, int num_nodes, int minibatch_size, int num_threads, int num_actions) {
 	if (num_nodes % minibatch_size != 0) {
 		throw invalid_argument("The minibatch size must be divisible by the total number of nodes");
 	}
@@ -25,6 +25,7 @@ MCTS_Thread_Manager::MCTS_Thread_Manager(vector<MCTS_Node*>* all_nodes, int num_
 		throw invalid_argument("The number of worker threads must be divisible by the total number of nodes");
 	}
 
+	this->num_actions = num_actions;
 	this->num_nodes = num_nodes;
 	this->minibatch_size = minibatch_size;
 	this->num_threads = num_threads;
@@ -199,11 +200,18 @@ int MCTS_Thread_Manager::nextActiveMinibatchNum() {
 
 
 
-
+vector<MCTS_Node*>* MCTS_Thread_Manager::getAllNodes() {
+	return all_nodes;
+}
 
 MCTS_Node* MCTS_Thread_Manager::getNode(int node_num) {
 	assertValidNodeNum(node_num);
 	return all_nodes->at(node_num);
+}
+
+void MCTS_Thread_Manager::setNode(int node_num, MCTS_Node* node) {
+	assertValidNodeNum(node_num);
+	all_nodes->at(node_num) = node;
 }
 
 
@@ -326,7 +334,26 @@ void MCTS_Thread_Manager::markNodeComplete(int node_num) {
 
 
 
+void MCTS_Thread_Manager::serializeNNQueue(int minibatch_num, string outfile) {
+	ofstream f (outfile);
 
+  	if (f.is_open()) {
+  		for (int state_num = minibatch_num * minibatch_size; state_num < (minibatch_num + 1) * minibatch_size; state_num++) {
+  			
+  			//StateVector* sv = nnQueueGet(state_num);
+  			//string csv_string = sv->asCSVString(tmp_log); // turn on log for now
+  			//f << csv_string << "\n";
+  			f << nnQueueGet(state_num)->asCSVString() << "\n";
+  			
+  		}
+    	f.close();
+  	}
+  	else {
+  		throw invalid_argument("In serializeNNQueue, Unable to open file " + outfile);
+  	}
+}
+
+/*
 void MCTS_Thread_Manager::serializeNNQueue(int minibatch_num, string outfile) {
 	ofstream f (outfile);
   	if (f.is_open()) {
@@ -336,9 +363,9 @@ void MCTS_Thread_Manager::serializeNNQueue(int minibatch_num, string outfile) {
     	f.close();
   	}
   	else {
-  		throw invalid_argument("Unable to open file " + outfile);
+  		throw invalid_argument("In serializeNNQueue, Unable to open file " + outfile);
   	}
-}
+}*/
 
 void MCTS_Thread_Manager::writeNodesToFile(int minibatch_num, string outfile) {
 	ofstream f (outfile);
@@ -349,11 +376,34 @@ void MCTS_Thread_Manager::writeNodesToFile(int minibatch_num, string outfile) {
     	f.close();
   	}
   	else {
-  		throw invalid_argument("Unable to open file " + outfile);
+  		throw invalid_argument("In writeNodesToFile, Unable to open file " + outfile);
   	}
 }
 
 void MCTS_Thread_Manager::deserializeNNResults(int minibatch_num, string infile, int round) {
+	string line;
+	ifstream f (infile);
+
+	if (f.is_open()) {
+		vector<ActionDistribution*>* minibatch_nn_results = new vector<ActionDistribution*>(minibatch_size);
+		int state_num = 0;
+		while(getline(f, line)) {
+			//minibatch_nn_results->at(state_num) = new ActionDistribution(stoi(line));
+			minibatch_nn_results->at(state_num) = new ActionDistribution(this->num_actions, line);
+
+			state_num++;
+	    }
+	    f.close();
+
+	    submitToNNResults(minibatch_nn_results, minibatch_num, round);
+	}
+	else {
+		throw invalid_argument("In deserializeNNResults, Unable to open file " + infile);
+	}
+
+}
+
+/*void MCTS_Thread_Manager::deserializeNNResults(int minibatch_num, string infile, int round) {
 	string line;
 	ifstream f (infile);
 
@@ -369,17 +419,18 @@ void MCTS_Thread_Manager::deserializeNNResults(int minibatch_num, string infile,
 	    submitToNNResults(minibatch_nn_results, minibatch_num, round);
 	}
 	else {
-		throw invalid_argument("Unable to open file " + infile);
+		throw invalid_argument("In deserializeNNResults, Unable to open file " + infile);
 	}
 
-}
+}*/
 
 
 
 
 // make sure thread functions regsiter themselves at beginning of threadFunc
 // and master registers itself at beginning
-void MCTS_Thread_Manager::log(string message, bool force) {
+void MCTS_Thread_Manager::log(string message, bool force, bool suppress) {
+	if (suppress && !force) return;
 	if (!logging && !force) return;
 	cout_mutex.lock();
 	string offset = "";
@@ -417,6 +468,33 @@ void MCTS_Thread_Manager::invokePythonScript(string script_file, string infile, 
         waitpid(pid, NULL, 0);
     }
 }
+
+void MCTS_Thread_Manager::invokeNNScript(string script_file, string state_vector_file, string model_dirname, string action_distribution_file) {
+	shared_data_mutex.lock();
+	num_script_invocations++;
+	shared_data_mutex.unlock();
+
+	char *command = (char *) "python";
+	char script_name[100]; strcpy(script_name, script_file.c_str());
+	char infile_arg[100]; strcpy(infile_arg, state_vector_file.c_str());
+	char modeldir_arg[200]; strcpy(modeldir_arg, model_dirname.c_str());
+	char outfile_arg[100]; strcpy(outfile_arg, action_distribution_file.c_str());
+    char *pythonArgs[]={command, script_name, infile_arg, modeldir_arg, outfile_arg, NULL};
+
+    pid_t parent = getpid();
+    pid_t pid = fork();
+
+    // if child process, do the exec
+    if (pid == 0) {
+    	execvp(command, pythonArgs);
+     }
+
+    // for the parent process, wait till the child completes
+    else {
+        waitpid(pid, NULL, 0);
+    }
+}
+
 
 
 
@@ -633,6 +711,7 @@ ActionDistribution* MCTS_Thread_Manager::adQueueGet(int node_num) {
 void MCTS_Thread_Manager::adQueuePut(ActionDistribution* ad, int node_num) {
 	queue_mutex.lock();
 	nn_results->at(node_num) = ad;
+	// should delete the existing one
 	queue_mutex.unlock();
 }
 
@@ -647,6 +726,7 @@ StateVector* MCTS_Thread_Manager::nnQueueGet(int node_num) {
 void MCTS_Thread_Manager::nnQueuePut(StateVector* state_vector, int node_num) {
 	queue_mutex.lock();
 	nn_queue->at(node_num) = state_vector;
+	// maybe delete existing state vector
 	queue_mutex.unlock();
 }
 

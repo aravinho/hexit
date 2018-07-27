@@ -22,6 +22,11 @@ public:
 	 */
 	Tictactoe(vector<int> squares, int turn, bool is_terminal, int reward, set<int> legal_moves);
 
+	/** 
+	 * Destructor. Nothing to delete.
+	 */
+	~Tictactoe();
+
 	/**
 	 * Returns a 0 if the current board has no winner,
 	 * 1 if X has won, and -1 if O has won.
