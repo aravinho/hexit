@@ -1,4 +1,5 @@
 #ifndef TICTACTOE_H
+#define TICTACTOE_H
 
 #include <vector>
 #include <set>
@@ -41,7 +42,8 @@ public:
 	
 	/**
 	 * Returns 0 if the current board is in a nonterminal state,
-	 * 1 if X has won, and -1 if O has won.
+	 * Positive number if X has won, and negative number if O has won.
+	 * Reward = (10 - num_squares_played) * WINNER
 	 */
 	int reward();
 	

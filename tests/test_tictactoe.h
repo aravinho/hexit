@@ -1,7 +1,7 @@
 #ifndef TEST_TICTACTOE_H
+#define TEST_TICTACTOE_H
 
 
-using namespace std;
 
 void runTictactoeTests();
 

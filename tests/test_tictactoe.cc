@@ -48,6 +48,7 @@ void testWinner() {
 	assertTrue(complex_nowin.winner() == 0, "testWinner", "Complex no win");
 }
 
+
 void testIsTerminalState() {
 	assertTrue(emp.winner() == 0, "testisTerminalState", "Empty has no winner");
 	assertTrue(p1win_simple.isTerminalState(), "testIsTerminalState", "P1 Simple Win");
