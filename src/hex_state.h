@@ -26,7 +26,7 @@ public:
 
 	/**
 	 * Returns a 0 if the current board has no winner,
-	 * 1 if X has won, and -1 if O has won.
+	 * 1 if Player 1 has won, and -1 if Player 2 has won.
 	 */ 
 	int winner() const;
 
@@ -38,10 +38,16 @@ public:
 	
 	/**
 	 * Returns 0 if the current board is in a nonterminal state,
-	 * Positive if X has won, and negative if O has won.
+	 * Positive if Player 1 has won, and negative if Player 2 has won.
 	 * The specific internals are specified by the _reward_type field (see constructor comment)
 	 */
 	double reward() const;
+
+	/**
+	 * Return 1 if it is Player 1's turn in the current board, or -1 if Player 2's turn.
+	 * Error if the board is invalid or in a terminal state.
+	 */
+	int turn() const;
 
 	/**
 	 * Returns true if this board and the other board are the same.
@@ -67,12 +73,7 @@ public:
 	 */
 	int randomAction() const;
 	
-	/**
-	 * Return 1 if it is Player 1's turn in the current board, or -1 if Player 2's turn.
-	 * Error if the board is invalid or in a terminal state.
-	 */
-	int turn() const;
-
+	
 	/**
 	 * Returns the vector that represents the board.
 	 */
@@ -114,32 +115,37 @@ private:
 	int col(int pos) const;
 
 	/**
-	 * Returns the index of the northwest neighbor.
+	 * Returns the index of the position at the given row and col.
+	 */
+	int pos(int row, int col) const;
+
+	/**
+	 * Returns the index of the northwest neighbor, or -1 if none exists.
 	 */
 	int northwestNeighbor(int pos) const;
 
 	/**
-	 * Returns the index of the northeast neighbor.
+	 * Returns the index of the northeast neighbor, or -1 if none exists.
 	 */
 	int northeastNeighbor(int pos) const;
 
 	/**
-	 * Returns the index of the southwest neighbor.
+	 * Returns the index of the southwest neighbor, or -1 if none exists.
 	 */
 	int southwestNeighbor(int pos) const;
 
 	/**
-	 * Returns the index of the southeast neighbor.
+	 * Returns the index of the southeast neighbor, or -1 if none exists.
 	 */
 	int southeastNeighbor(int pos) const;
 
 	/**
-	 * Returns the index of the west neighbor.
+	 * Returns the index of the west neighbor, or -1 if none exists.
 	 */
 	int westNeighbor(int pos) const;
 
 	/**
-	 * Returns the index of the east neighbor.
+	 * Returns the index of the east neighbor, or -1 if none exists.
 	 */
 	int eastNeighbor(int pos) const;
 
@@ -174,7 +180,7 @@ private:
 	/**
 	 * Returns 1 if Player 1 wins this board, -1 if Player 2 wins, and 0 if nobody wins.
 	 */
-	int determineWinner(const vector<int>& board) const;
+	int determineWinner() const;
 
 
 	/*** Utility helper functions ***/
@@ -195,11 +201,7 @@ private:
 };
 
 
-/**
- * Helper function to determine the winner (if there is won) of a given Hex board.
- * Returns 1 if Player 1 is winner, -1 if Player 2 is winner, and 0 if there is no winner.
- */
-int determineWinner(const vector<int>& board); 
+
  
 
 #endif

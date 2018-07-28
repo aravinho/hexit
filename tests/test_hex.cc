@@ -84,7 +84,6 @@ void testRewardHex() {
 	ASSERT(boards["complex_draw"]->reward() == 0, "Reward should be 0");
 
 	// test basic Player 1 win
-
 	ASSERT(boards["simple_p1_win"]->reward() == 5, "Reward should be 5");
 
 	// test complex Player 1 win
@@ -111,7 +110,7 @@ void testTurnHex() {
 }
 
 
-void testnextStateHex() {
+void testNextStateHex() {
 
 	// test that subtyping of return types works
 	EnvState* s = new HexState(test_dimension, {0,0,0,0,0,0,0,0,0}, "basic");
@@ -185,7 +184,7 @@ void runHexTests() {
 	testIsTerminalStateHex();
 	testRewardHex();
 	testTurnHex();
-	testnextStateHex();
+	testNextStateHex();
 	testIsLegalActionHex();
 	testRandomActionHex();
 	testAsCSVStringHex();

@@ -32,6 +32,9 @@ main: $(MAIN_EXE_FILE)
 test: $(NEW_TEST_EXE_FILE)
 	./$(NEW_TEST_EXE_FILE)
 
+py_test:
+	python tests/python_tests.py
+
 $(MAIN_EXE_FILE): $(MAIN_OBJ_FILES)
 	$(CC) -o $(MAIN_EXE_FILE) $(MAIN_OBJ_FILES)
 
@@ -43,7 +46,7 @@ $(TEST_EXE_FILE): $(SRC_OBJ_FILES) $(TEST_OBJ_FILES)
 
 $(NEW_TEST_EXE_FILE): $(NEW_TEST_SRC_OBJ_FILES) $(NEW_TEST_OBJ_FILES)
 	$(CC) -o $(NEW_TEST_EXE_FILE) $(NEW_TEST_OBJ_FILES) $(NEW_TEST_SRC_OBJ_FILES)
-	
+
 # Test Objects
 obj/hexit-tests.o: tests/hexit_tests.cc tests/test_tictactoe.h
 	$(CC) -c -o obj/hexit-tests.o $(INC_FLAGS) tests/hexit_tests.cc
