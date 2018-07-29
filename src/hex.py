@@ -1,4 +1,5 @@
 import random
+import numpy as np
 
 class HexState:
 
@@ -142,6 +143,9 @@ class HexState:
         """
         return self._dimension ** 2
 
+    def asNumpyArray(self):
+        return np.array(self._board).astype(np.float32)
+
 
 
 
@@ -250,6 +254,22 @@ class HexState:
         return self.pos(r, c + 1)
 
 
+    def neighbors(self, pos):
+        """
+        Returns a list of indices of all the neighbors of this position.
+        """
+        neighbors = []
+        nw = self.northwestNeighbor(pos)
+        ne = self.northeastNeighbor(pos)
+        sw = self.southwestNeighbor(pos)
+        se = self.southeastNeighbor(pos)
+        w = self.westNeighbor(pos)
+        e = self.eastNeighbor(pos)
+        for neighbor in [nw, ne, sw, se, w, e]:
+            if neighbor != -1:
+                neighbors.append(neighbor)
+        return neighbors
+
 
     def southwardPathExists(self, start_pos, end_row, visited):
         """
@@ -274,24 +294,13 @@ class HexState:
         # mark this spot visisted
         visited[start_pos] = True
 
-        southwest_neighbor = self.southwestNeighbor(start_pos)
-        southeast_neighbor = self.southeastNeighbor(start_pos)
-        east_neighbor = self.eastNeighbor(start_pos)
+        # grab neighbors and recurse
+        neighbors = self.neighbors(start_pos)
 
-        # recurse on southwest neighbor
-        if southwest_neighbor != -1 and not visited[southwest_neighbor]:
-            if self.southwardPathExists(southwest_neighbor, end_row, visited):
-                return True
-
-        # recurse on southeast neighbor
-        if southeast_neighbor != -1 and not visited[southeast_neighbor]:
-            if self.southwardPathExists(southeast_neighbor, end_row, visited):
-                return True
-
-        # recurse on east neighbor
-        if east_neighbor != -1 and not visited[east_neighbor]:
-            if self.southwardPathExists(east_neighbor, end_row, visited):
-                return True
+        for neighbor in neighbors:
+            if not visited[neighbor]:
+                if self.southwardPathExists(neighbor, end_row, visited):
+                    return True
 
         return False
 
@@ -319,24 +328,13 @@ class HexState:
         # mark this spot visisted
         visited[start_pos] = True
 
-        east_neighbor = self.eastNeighbor(start_pos)
-        northeast_neighbor = self.northeastNeighbor(start_pos)
-        southeast_neighbor = self.southeastNeighbor(start_pos)
+        # grab neighbors and recurse
+        neighbors = self.neighbors(start_pos)
 
-        # recurse on east neighbor
-        if east_neighbor != -1 and not visited[east_neighbor]:
-            if self.eastwardPathExists(east_neighbor, end_col, visited):
-                return True
-
-        # recurse on northeast neighbor
-        if northeast_neighbor != -1 and not visited[northeast_neighbor]:
-            if self.eastwardPathExists(northeast_neighbor, end_col, visited):
-                return True
-
-        # recurse on southeast neighbor
-        if southeast_neighbor != -1 and not visited[southeast_neighbor]:
-            if self.eastwardPathExists(southeast_neighbor, end_col, visited):
-                return True
+        for neighbor in neighbors:
+            if not visited[neighbor]:
+                if self.eastwardPathExists(neighbor, end_col, visited):
+                    return True
 
         return False
 

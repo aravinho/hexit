@@ -19,7 +19,7 @@ def convert_dist_to_argmax(dist_labels, num_classes=9):
 
 class ExitNN:
 
-    def __init__(self, print_every=100, save_every=1000):
+    def __init__(self, model_spec="", print_every=100, save_every=1000):
         self.print_every = print_every
         self.save_every = save_every
 
