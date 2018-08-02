@@ -80,8 +80,8 @@ public:
 	vector<int> board() const;
 
 
-	/* Returns a pointer to a vector that is a Neural Net representaion of this state. */
-	vector<double>* makeStateVector() const;
+	/* Populates the given vector with the Neural Net representaion of this state. */
+	void makeStateVector(vector<double>* state_vector) const;
 
 	/* Returns the number of actions for this game. (dimension x dimension). */
 	int numActions() const;
@@ -91,6 +91,13 @@ public:
 
 	/* Returns the board vector, represented as a CSV string. */
 	string asCSVString() const; 
+
+	/**
+	 * If the given piece is a 1, returns "X", if -1, returns "O", and if 0, returns "_".
+	 * Useful for printing the board.
+	 */
+	string pieceAsString(int piece) const;
+
 
 
 
@@ -148,6 +155,12 @@ private:
 	 * Returns the index of the east neighbor, or -1 if none exists.
 	 */
 	int eastNeighbor(int pos) const;
+
+	/**
+	 * Returns a vector of the neighbors of the given position (all of them that aren't -1).
+	 */
+	vector<int> neighbors(int pos) const;
+
 
 	
 	/**

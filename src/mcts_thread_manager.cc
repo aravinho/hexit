@@ -35,9 +35,10 @@ MCTS_Thread_Manager::MCTS_Thread_Manager(vector<MCTS_Node*>* all_nodes, int num_
 	this->all_nodes = all_nodes;
 	this->nn_queue = new vector<StateVector*>(num_nodes);
 	this->nn_results = new vector<ActionDistribution*>(num_nodes);
+	// initialize all StateVectors and ActionDistributions to dummies
 	for (int node_num = 0; node_num < num_nodes; node_num++) {
-		this->nn_queue->at(node_num) = new StateVector(0);
-		this->nn_results->at(node_num) = new ActionDistribution(0);
+		this->nn_queue->at(node_num) = new StateVector();
+		this->nn_results->at(node_num) = new ActionDistribution();
 	}
 
 	this->minibatch_ownership = new vector<bool>(num_minibatches);
@@ -367,7 +368,7 @@ void MCTS_Thread_Manager::serializeNNQueue(int minibatch_num, string outfile) {
   	}
 }*/
 
-void MCTS_Thread_Manager::writeNodesToFile(int minibatch_num, string outfile) {
+/*void MCTS_Thread_Manager::writeNodesToFile(int minibatch_num, string outfile) {
 	ofstream f (outfile);
   	if (f.is_open()) {
   		for (int state_num = minibatch_num * minibatch_size; state_num < (minibatch_num + 1) * minibatch_size; state_num++) {
@@ -378,7 +379,7 @@ void MCTS_Thread_Manager::writeNodesToFile(int minibatch_num, string outfile) {
   	else {
   		throw invalid_argument("In writeNodesToFile, Unable to open file " + outfile);
   	}
-}
+}*/
 
 void MCTS_Thread_Manager::deserializeNNResults(int minibatch_num, string infile, int round) {
 	string line;

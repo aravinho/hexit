@@ -115,6 +115,11 @@ bool HexState::isLegalAction(int action) const {
 
 int HexState::randomAction() const {
 	int num_legal_moves = this->_legal_actions.size();
+	if (num_legal_moves <= 0) {
+		cout << "NUm legal moves <= 0" << endl;
+		this->printBoard();
+		cout << "is terminal? " << this->isTerminalState() << endl;
+	}
 	ASSERT(num_legal_moves > 0, "No legal moves available from this hex state.");
 	
 	int r = rand() % num_legal_moves;
@@ -128,14 +133,15 @@ vector<int> HexState::board() const {
 	return this->_board;
 }
 
-vector<double>* HexState::makeStateVector() const {
+void HexState::makeStateVector(vector<double>* state_vector) const {
+
+	ASSERT(state_vector->size() >= this->numActions(), "The vector passed to makeStateVector must have at least " << this->numActions() << " elements");
 
 	// for now, just the board
-	vector<double>* state_vector = new vector<double>(this->numActions());
 	for (int pos = 0; pos < this->numActions(); pos++) {
 		state_vector->at(pos) = (double) this->_board[pos];
 	}
-	return state_vector;
+
 }
 
 int HexState::numActions() const {
@@ -238,6 +244,26 @@ int HexState::eastNeighbor(int pos) const {
 
 }
 
+vector<int> HexState::neighbors(int pos) const {
+	
+	int nw = this->northwestNeighbor(pos);
+    int ne = this->northeastNeighbor(pos);
+    int sw = this->southwestNeighbor(pos);
+    int se = this->southeastNeighbor(pos);
+    int w = this->westNeighbor(pos);
+    int e = this->eastNeighbor(pos);
+
+    vector<int> all_neighbors = {nw, ne, sw, se, w, e};
+    vector<int> existing_neighbors;
+    for (int neighbor : all_neighbors) {
+    	if (neighbor != -1) {
+    		existing_neighbors.push_back(neighbor);
+    	}
+    }
+
+    return existing_neighbors;
+}
+
 
 bool HexState::southwardPathExists(int start_pos, int end_row, vector<bool>& visited) const {
 	
@@ -258,28 +284,12 @@ bool HexState::southwardPathExists(int start_pos, int end_row, vector<bool>& vis
 	// mark this spot visited
 	visited[start_pos] = true;
 
-	int southwest_neighbor = this->southwestNeighbor(start_pos);
-	int southeast_neighbor = this->southeastNeighbor(start_pos);
-	int east_neighbor = this->eastNeighbor(start_pos);
-
-	// recurse on southwest neighbor
-	if (southwest_neighbor != -1 && !visited[southwest_neighbor]) {
-		if (this->southwardPathExists(southwest_neighbor, end_row, visited)) {
-			return true;
-		}
-	}
-
-	// recurse on southeast neighbor
-	if (southeast_neighbor != -1 && !visited[southeast_neighbor]) {
-		if (this->southwardPathExists(southeast_neighbor, end_row, visited)) {
-			return true;
-		}
-	}
-
-	// recurse on east neighbor
-	if (east_neighbor != -1 && !visited[east_neighbor]) {
-		if (this->southwardPathExists(east_neighbor, end_row, visited)) {
-			return true;
+	vector<int> neighbors = this->neighbors(start_pos);
+	for (int neighbor : neighbors) {
+		if (!visited[neighbor]) {
+			if (this->southwardPathExists(neighbor, end_row, visited)) {
+				return true;
+			}
 		}
 	}
 
@@ -306,29 +316,12 @@ bool HexState::eastwardPathExists(int start_pos, int end_col, vector<bool>& visi
 	// mark this spot visited
 	visited[start_pos] = true;
 
-	int east_neighbor = this->eastNeighbor(start_pos);
-	int northeast_neighbor = this->northeastNeighbor(start_pos);
-	int southeast_neighbor = this->southeastNeighbor(start_pos);
-
-	// recurse on east neighbor
-	if (east_neighbor != -1 && !visited[east_neighbor]) {
-		if (this->eastwardPathExists(east_neighbor, end_col, visited)) {
-			return true;
-		}
-	}
-
-	// recurse on northeast neighbor
-	if (northeast_neighbor != -1 && !visited[northeast_neighbor]) {
-		if (this->eastwardPathExists(northeast_neighbor, end_col, visited)) {
-			return true;
-		}
-	}
-
-
-	// recurse on southeast neighbor
-	if (southeast_neighbor != -1 && !visited[southeast_neighbor]) {
-		if (this->eastwardPathExists(southeast_neighbor, end_col, visited)) {
-			return true;
+	vector<int> neighbors = this->neighbors(start_pos);
+	for (int neighbor : neighbors) {
+		if (!visited[neighbor]) {
+			if (this->eastwardPathExists(neighbor, end_col, visited)) {
+				return true;
+			}
 		}
 	}
 
@@ -385,7 +378,7 @@ int HexState::determineWinner() const {
 
 /***** Utility Functions *****/
 
-string pieceAsString(int piece) {
+string HexState::pieceAsString(int piece) const {
 	if (piece == 1) return "X";
 	if (piece == -1) return "O";
 	return "_";
@@ -399,7 +392,7 @@ void HexState::printRow(int row) const {
 	}
 
 	for (int col = 0; col < this->_dimension; col++) {
-		cout << pieceAsString(this->at(pos(row, col))) << "    ";
+		cout << this->pieceAsString(this->at(pos(row, col))) << "    ";
 	}
 	cout << endl;
 }

@@ -1,6 +1,8 @@
 #ifndef ENV_STATE_H
 #define ENV_STATE_H
 
+#include "utils.h"
+
 #include <vector>
 
 using namespace std;
@@ -59,8 +61,8 @@ public:
 	virtual vector<int> board() const = 0;
 
 
-	/* Returns a pointer to a vector that is a Neural Net representaion of this state. */
-	virtual vector<double>* makeStateVector() const = 0;
+	/* Populates the given vector with the Neural Net representaion of this state. */
+	virtual void makeStateVector(vector<double>* state_vector) const = 0;
 
 	/* Returns the number of actions for this game. (dimension x dimension). */
 	virtual int numActions() const = 0;
@@ -71,5 +73,9 @@ public:
 	/* Returns the board vector, represented as a CSV string. */
 	virtual string asCSVString() const = 0; 
 };
+
+
+
+EnvState* stateFromCSVString(string game, string csv_string, const ArgMap& options);
 
 #endif

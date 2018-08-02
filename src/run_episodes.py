@@ -1,23 +1,10 @@
 import sys
 import os
 from agents import *
+from utils import *
+from config import *
 
 
-DEFAULT_GAME = "hex"
-DEFAULT_NUM_GAMES = 1
-DEFAULT_HEX_DIM = 5
-DEFAULT_P1_AGENT = "user"
-DEFAULT_P2_AGENT = "user" 
-DEFAULT_P1_AGENT_SAMPLE = True
-DEFAULT_P2_AGENT_SAMPLE = True
-
-DEFAULT_RANDOM_FIRST_MOVE = 0.0
-DEFAULT_DISPLAY_STATE = False
-DEFAULT_LOG_EVERY = 10
-DEFAULT_STATES_PER_FILE = 2**20
-
-GAME_OPTIONS = ["tictactoe", "hex"]
-AGENT_TYPES = ["nn", "user", "random"]
 
 
 
@@ -37,6 +24,7 @@ def runEpisode(game, p1_agent, p2_agent, game_specs, random_first_move=0.0, disp
     
     if game == "tictactoe":
         state = Tictactoe([0,0,0,0,0,0,0,0,0])
+        
     elif game == "hex":
         assert "dimension" in game_specs, "dimension not given in game_specs in playGame function"
         dimension = game_specs["dimension"]
@@ -45,7 +33,7 @@ def runEpisode(game, p1_agent, p2_agent, game_specs, random_first_move=0.0, disp
 
     game_states = []
 
-    if random_first_move:
+    if decision(random_first_move):
         game_states.append(state)
         random_action = state.randomAction()
         state = state.nextState(random_action)
@@ -80,34 +68,7 @@ def runEpisode(game, p1_agent, p2_agent, game_specs, random_first_move=0.0, disp
     return game_states
 
 
-def parseArgs(args):
-    """
-    The given argument "args" is an array (typically just sys.argv).
-    It is assumed that the arguments come in pairs.
-    The first element of a pair is of the format --option.
-    The second element of the pair is a value (either a string or an int)
-    This function returns a dictionary whose keys are the option elements, and whose values are the values.
 
-    Example:
-
-    args = ["--game", "hex", "--num_games", "100"]
-    Returns {"game": "hex", "--num_games": "100"}
-
-    """
-
-    arg_dict = {}
-
-    # make sure the given args array has an even length
-    assert len(args) % 2 == 0, "Args must have an even length"
-
-    for pair_num in range(len(args) // 2):
-        option = args[pair_num * 2]
-        assert len(option) > 2 and option[0:2] == "--", "Arg options must start with double hyphen"
-        option = option[2:]
-        value = args[pair_num * 2 + 1]
-        arg_dict[option] = value
-
-    return arg_dict
 
 
 def writeStatesToFile(states, save_path):
@@ -153,7 +114,7 @@ def main():
     python src/run_episodes.py \
     --game <game_name> [defaults to "hex"] \
     --num_episodes <number of games> [defaults to 1] \
-    --hex_dim <dimension of hex game> [unnecessary for non-hex games, defaults to 3] \
+    --hex_dim <dimension of hex game> [unnecessary for non-hex games, defaults to 5] \
     \
     --p1_agent <nn OR user OR random> [defaults to user] \
     --p1_model_path <path to NN model to be used for Agent 1> [unnecessary for non-NN Player 1 Agents] \
@@ -265,7 +226,7 @@ def main():
 
     # Create Agent 1
     if p1_agent_type == "user":
-        p1_agent = UserAgenst(game)
+        p1_agent = UserAgent(game)
     elif p1_agent_type == "random":
         p1_agent = RandomAgent(game)
     elif p1_agent_type == "nn":
@@ -274,7 +235,7 @@ def main():
 
     # Create Agent 2
     if p2_agent_type == "user":
-        p2_agent = UserAgenst(game)
+        p2_agent = UserAgent(game)
     elif p2_agent_type == "random":
         p2_agent = RandomAgent(game)
     elif p2_agent_type == "nn":

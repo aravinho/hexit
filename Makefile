@@ -1,12 +1,15 @@
-SRC_OBJ_FILES	= obj/tictactoe.o obj/mcts.o obj/mcts-thread-manager.o obj/hex-state.o obj/play-hex.o obj/gui.o obj/main.o
+SRC_OBJ_FILES	= obj/tictactoe.o obj/mcts.o obj/mcts-thread-manager.o obj/hex-state.o obj/play-hex.o obj/gui.o obj/main.o obj/config.o obj/utils.o
 TEST_EXE_FILE 	= bin/hexit-tests
 TEST_OBJ_FILES	= obj/hexit-tests.o obj/test-tictactoe.o obj/test-thread-manager.o obj/test-utils.o obj/test-mcts.o obj/test-hex.o
 PLAY_EXE_FILE 	= bin/play-hex
-MAIN_OBJ_FILES	= obj/tictactoe.o obj/mcts.o obj/main.o obj/mcts-thread-manager.o
+MAIN_OBJ_FILES	= obj/tictactoe.o obj/mcts.o obj/main.o obj/mcts-thread-manager.o obj/config.o
 MAIN_EXE_FILE	= bin/main-exe
 NEW_TEST_EXE_FILE 	= bin/new-hexit-tests
 NEW_TEST_OBJ_FILES	= obj/test-hex.o obj/test-utils.o obj/hexit-tests.o
 NEW_TEST_SRC_OBJ_FILES = obj/hex-state.o
+
+MCTS_EXE_FILE = bin/run-mcts
+MCTS_SRC_OBJ_FILES = obj/mcts.o obj/mcts-thread-manager.o obj/hex-state.o obj/tictactoe.o obj/main.o obj/config.o obj/utils.o obj/env-state.o
 
 SRC_HEADER_FILES = src/tictactoe.h src/mcts.h src/hex_state.h src/thread_manager.h src/play_hex.h src/gui.h src/main.h
 SRC_CC_FILES = src/tictactoe.cc src/mcts.cc src/hex_state.cc src/thread_manager.cc src/play_hex.cc src/gui.cc src/main.cc src/env_state.cc
@@ -17,8 +20,10 @@ CC_OPTIONS = -fno-rtti -fno-exceptions -fstrict-aliasing -Wall -D__WXMSW__ -D__G
 LINKER_OPTIONS = -lwxmsw -lole32 -lwsock32 -lcomctl32 -lctl3d32 -lgcc -lstdc++ -lshell32 -loleaut32 -ladvapi32 -luuid -lodbc32
 #(https://wiki.wxwidgets.org/Writing_Your_First_Application-Introduction)
 
-CC	= g++ -std=c++11
+CC	= g++ -std=c++17
 INC_FLAGS = -I src -I tests
+
+default: $(MCTS_EXE_FILE)
 
 play: $(PLAY_EXE_FILE)
 	./$(PLAY_EXE_FILE)
@@ -31,6 +36,8 @@ main: $(MAIN_EXE_FILE)
 
 test: $(NEW_TEST_EXE_FILE)
 	./$(NEW_TEST_EXE_FILE)
+
+
 
 py_test:
 	python tests/python_tests.py
@@ -46,6 +53,9 @@ $(TEST_EXE_FILE): $(SRC_OBJ_FILES) $(TEST_OBJ_FILES)
 
 $(NEW_TEST_EXE_FILE): $(NEW_TEST_SRC_OBJ_FILES) $(NEW_TEST_OBJ_FILES)
 	$(CC) -o $(NEW_TEST_EXE_FILE) $(NEW_TEST_OBJ_FILES) $(NEW_TEST_SRC_OBJ_FILES)
+
+$(MCTS_EXE_FILE): $(MCTS_SRC_OBJ_FILES)
+	$(CC) -o $(MCTS_EXE_FILE) $(MCTS_SRC_OBJ_FILES)
 
 # Test Objects
 obj/hexit-tests.o: tests/hexit_tests.cc tests/test_tictactoe.h
@@ -89,6 +99,12 @@ obj/gui.o: src/gui.cc src/gui.h
 obj/main.o: src/main.cc src/main.h
 	$(CC) -c -o obj/main.o $(INC_FLAGS) src/main.cc
 
+obj/config.o: src/config.cc src/config.h
+	$(CC) -c -o obj/config.o $(INC_FLAGS) src/config.cc
 
+obj/utils.o: src/utils.cc src/utils.h
+	$(CC) -c -o obj/utils.o $(INC_FLAGS) src/utils.cc
 
+obj/env-state.o: src/env_state.cc src/env_state.h
+	$(CC) -c -o obj/env-state.o $(INC_FLAGS) src/env_state.cc
 

@@ -16,12 +16,15 @@ python src/run_episodes.py \
 
 
 # Run MCTS on these states, without using a neural net apprentice
-make
-./run-mcts \
+# MCTS sample_actions must be an arg!!!!!
+# AND WHETHER TO USE RAVE
+# and hyperparameters c_b c_rave w_a
+make && ./bin/run-mcts \
  	--game hex \
+ 	--hex_reward_type win_fast \
  	--hex_dim 5 \
  	\
- 	--num_states 4096 \
+ 	--num_states 32 \
  	--input_data_path data/nn_states/hex/5/best_model/0/ \
  	\
  	--num_simulations 1000 \
@@ -29,10 +32,10 @@ make
  	\
  	--minibatch_size 256 \
  	--num_threads 4 \
- 	--log_every 512 \
+ 	--log_every 8 \
     \
     --output_data_path data/mcts/hex/5/best_model/ \
-    --states_per_file 1024 \
+    --states_per_file 8 \
 
 
 # Train the neural network from scratch for this first time
@@ -41,6 +44,8 @@ python src/train_nn.py \
 	--hex_dim 5 \
 	\
 	--training_data_path data/mcts/hex/5/best_model/ \
+	--begin_from 0 \
+	--dataset_size 4096 \
 	--batch_size 256 \
 	--num_epochs 500 \
 	--log_every 50 \
@@ -79,9 +84,10 @@ python src/run_episodes.py \
 
 
 # Run MCTS using the neural net apprentice
-make
-./run-mcts \
+# IMPLEMENT THREAD MANAGER LOG EVERY
+make; ./bin/run-mcts \
  	--game hex \
+ 	--hex_reward_type win_fast \
  	--hex_dim 5 \
  	\
  	--num_states 4096 \
@@ -109,6 +115,8 @@ python src/train_nn.py \
 	--hex_dim 5 \
 	\
 	--training_data_path data/mcts/hex/5/best_model/ \
+	--begin_from 0 \
+	--dataset_size 4096 \
 	--batch_size 256 \
 	--num_epochs 500 \
 	--log_every 50 \
