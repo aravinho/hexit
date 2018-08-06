@@ -25,7 +25,7 @@ This process repeats.  The apprentice generates states through self-play.  The e
 A [Hex](https://en.wikipedia.org/wiki/Hex_(board_game)) board is made up of hexagonal spaces arranged on an *n* by *n* hexagonal board.  Players take turns placing stones on the board.  Player 1 (Red) wins if her pieces form a connected path from the north row of the board to the south row.  Player 2 (Blue) wins if his pieces form a connected path from the west column to the east.  In this image, Player 2 has won.
 
 <p align="center">
-	<img src="http://www.krammer.nl/hex/wp-content/uploads/2014/11/Hex-bord-met-stenen.png" style="width:300px;height:200px;">
+	<img src="http://www.krammer.nl/hex/wp-content/uploads/2014/11/Hex-bord-met-stenen.png" style="width:150px;height:100px;">
 </p>
 
 Hex is easily representable using an MDP; there are a clear notion of states (a board configuration), actions (where to play the next stone), and reward (a game of Hex always ends with a winner and a loser).  It is proven that there is an optimal strategy for Player 1, which adds a layer of interest to the problem of creating a Hex-playing agent.
