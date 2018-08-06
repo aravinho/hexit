@@ -1,5 +1,5 @@
 # HExIt: An Expert Iteration Agent for the Board Game Hex
-A Spring/Summer 2018 project by Aravind Sivakumar (aravinho@gmail.com), UC Berkeley.  
+A Spring/Summer 2018 project by Aravind Sivakumar (aravinho@gmail.com).  Started as a course project for Professor John Canny's course *Designing, Understanding and Visualizing Deep Neural Networks* at UC Berkeley (with colleagues Yash Kirloskar and Nikhilesh Vegesna), and continued as an individual independent study project.
 
 Inspired by the [Thinking Fast and Slow With Deep Learning and Tree Search](https://papers.nips.cc/paper/7120-thinking-fast-and-slow-with-deep-learning-and-tree-search)  paper from Anthony, Tian and Barber,  (NIPS 2017).
 
