@@ -22,7 +22,7 @@ This process repeats.  The newly improved apprentice generates more realistic ga
 ## The Game Hex
 
 
-A [Hex](https://en.wikipedia.org/wiki/Hex_(board_game)) board is made up of hexagonal spaces arranged on an *n* by *n* hexagonal board.  Players take turns placing stones on the board.  Player 1 (Red) wins if his pieces form a connected path from the north row of the board to the south row.  Player 2 (Blue) wins if her pieces form a connected path from the west column to the east.  In this image, Player 2 has won.
+A [Hex](https://en.wikipedia.org/wiki/Hex_(board_game)) board is made up of hexagonal spaces arranged on an *n* by *n* rhombus-shaped board.  Players take turns placing stones on the board.  Player 1 (Red) wins if his pieces form a connected path from the north row of the board to the south row.  Player 2 (Blue) wins if her pieces form a connected path from the west column to the east.  In this image of an 11 x 11 board, Player 2 has won.
 
 <p align="center">
 	<img src="http://www.krammer.nl/hex/wp-content/uploads/2014/11/Hex-bord-met-stenen.png" style="width:150px;height:100px;">
