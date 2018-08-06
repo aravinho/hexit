@@ -1,5 +1,4 @@
 #include "mcts.h"
-#include "utils.h"
 
 #include <iostream>
 
@@ -39,7 +38,6 @@ void print(string message) {
 
 
 
-
 StateVector::StateVector() {
 
 }
@@ -57,7 +55,6 @@ double StateVector::at(int k) const {
 }
 
 StateVector::~StateVector() {
-
 }
 
 string StateVector::asCSVString() const {
@@ -73,6 +70,8 @@ string StateVector::asCSVString() const {
 
 	return s;
 }
+
+
 
 ActionDistribution::ActionDistribution() {
 	this->action_dist = new vector<double>(9, 0.0);
@@ -152,7 +151,7 @@ MCTS_Node::MCTS_Node(EnvState* state, bool is_root, int num_simulations, bool sa
 	this->edge_rewards_rave = new vector<double>(this->num_actions, 0.0);
 
 	// this is the state vector that is sent to the neural net.
-	vector<double>* sv = new vector<double>(this->num_actions, 0.0);
+	vector<double>* sv = new vector<double>();
 	state->makeStateVector(sv);
 	this->state_vector = new StateVector(*sv);
 	// initialize the AD to NULL
@@ -180,6 +179,19 @@ MCTS_Node::~MCTS_Node() {
 	// do not delete this->state (or this->state_vector) because we don't want the state vector to get deleted
 	// likewise, do not delete this->nn_result
 	// deleting these will cause the ThreadManager's queues to be messed up.
+
+	// delete state
+	delete this->state;
+
+	// try deleting state vector and action distribution
+	if (this->state_vector != NULL) {
+		delete this->state_vector;
+	} 
+	if (this->nn_result != NULL) {
+		delete this->nn_result;
+	}
+
+
 	
 	// delete all N and R vectors
 	if (this->num_edge_traversals != NULL) {
@@ -213,7 +225,7 @@ MCTS_Node::~MCTS_Node() {
 void MCTS_Node::deleteTree() {
 	ASSERT(this->isRoot(), "Cannot delete a tree starting from a non-root node");
 
-	for (MCTS_Node* child : *this->children) {
+	for (MCTS_Node* child : *(this->children)) {
 		if (child != NULL) {
 			delete child;
 		}
@@ -997,9 +1009,9 @@ int writeBatchToFile(vector<MCTS_Node*>* nodes, string base_dirname, int states_
 	ASSERT(next_x_file_num == next_y_file_num, "next_x_file_num " << next_x_file_num << " must equal next_y_file_num " << next_y_file_num);
 
 	// write the states and action distributions to files, starting at the next available file
-	cout << "Writing states to CSV files in " << x_dirname << endl;
+	logTime("Writing states to CSV files in " + x_dirname);
 	int states_written = writeStatesToFile(nodes, x_dirname, next_x_file_num, states_per_file);
-	cout << "Writing action distributions to CSV files in " << y_dirname << endl;
+	logTime("Writing action distributions to CSV files in " + y_dirname);
 	int action_distributions_written = writeActionDistributionsToFile(nodes, y_dirname, next_y_file_num, states_per_file);
 
 	ASSERT(states_written == action_distributions_written, "Must write same number of states and action distributions");
@@ -1055,16 +1067,16 @@ int readCSVFile(string game, int num_states, string file_path, vector<MCTS_Node*
 
 
 // reads nodes from all the CSVs in a directory, stores them in the nodes vector
-int readInputData(string game, int num_states, string input_data_path, vector<MCTS_Node*>* nodes, const ArgMap& options) {
+int readInputData(string game, int num_states, string input_data_path, int start_at, vector<MCTS_Node*>* nodes, const ArgMap& options) {
 
 	ASSERT(nodes != NULL, "Nodes vector is NULL");
 	ASSERT(num_states >= 0, "Num states is negative");
 	ASSERT(GAME_OPTIONS.count(game) > 0, "Game " << game << " is not available");
 
-	cout << "Reading in " << num_states << " input states from " << input_data_path << " for the game " << game << endl;
+	logTime("Reading in " + to_string(num_states) + " input states from " + input_data_path + " for the game " + game);
 
 	// grab all the CSV files in the input directory (sorted by name)
-	vector<string> input_filenames = csvFilesInDir(input_data_path);
+	vector<string> input_filenames = csvFilesInDir(input_data_path, start_at);
 	
 	// read in states from each one, making sure not to read more than NUM_STATES in total
 	int num_states_left = num_states;
@@ -1073,7 +1085,7 @@ int readInputData(string game, int num_states, string input_data_path, vector<MC
 			break;
 		}
 		int num_states_read = readCSVFile(game, num_states_left, filename, nodes, options);
-		cout << "Read " << num_states_read << " states from " << filename << endl;
+		logTime("Read " + to_string(num_states_read) + " states from " + filename);
 		num_states_left -= num_states_read;
 	}
 
@@ -1081,8 +1093,6 @@ int readInputData(string game, int num_states, string input_data_path, vector<MC
 	ASSERT(nodes->size() <= num_states, "Do not read more than " << num_states << " states");
 
 	return num_states - num_states_left;
-	cout << "Read " << num_states << " input states from " << input_data_path << " for the game " << game << endl;
-
 
 }
 

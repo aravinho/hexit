@@ -80,7 +80,13 @@ public:
 	vector<int> board() const;
 
 
-	/* Populates the given vector with the Neural Net representaion of this state. */
+	/* Populates the given vector with the Neural Net representaion of this state. 
+	 * Creates channels out of the board.
+	 * Each channel is padded on both sides by two columns, and on top and bottom by two rows each.
+	 * Channel 1 has a "1" in all spots with Player 1 pieces, and in the top 2 rows and bottom 2 rows.
+	 * Channel 2 has a "1" in all spots with Player 2 pieces, and in the left 2 columns and right 2 columns.
+	 * The last two elements denote whose turn. [1,0] if Player 1's turn, [0,1] if Player 2's
+	 */
 	void makeStateVector(vector<double>* state_vector) const;
 
 	/* Returns the number of actions for this game. (dimension x dimension). */

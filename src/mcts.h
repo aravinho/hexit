@@ -1,8 +1,9 @@
 #ifndef MCTS_H
+#define MCTS_H
 
 #include "env_state.h"
 #include "hex_state.h"
-#include "tictactoe.h"
+//#include "tictactoe.h"
 #include "config.h"
 #include "utils.h"
 
@@ -23,9 +24,6 @@ class MCTS_Node;
 class StateVector;
 class ActionDistribution;
 
-
-// make dummy
-// modify so vector of doubles
 
 /**
  * This class is a wrapper around the type of vector that a neural network would take as input.
@@ -534,6 +532,7 @@ MCTS_Node* runAllSimulations(MCTS_Node* node, int max_depth=DEFAULT_MAX_DEPTH);
 /** 
  * Populates the nodes vector with the data read in from the given INPUT_DATA_PATH.
  * The input_data_path specifies a directory with CSV files.
+ * The number START_AT specifies which file number to start at.
  * Each file contains many lines, each of which encodes a state for a particular game (Tictactoe, Hex, etc...) (given by GAME arg)
  * This method creates an appropriate EnvState instance (HexState, TictactoeState, etc) from the CSV string representation.
  * That state is then used to initialize an MCTS_Node, which will run NUM_SIMULATIONS simulations.
@@ -541,7 +540,7 @@ MCTS_Node* runAllSimulations(MCTS_Node* node, int max_depth=DEFAULT_MAX_DEPTH);
  * Returns the number of nodes read.
  * Errors if game is not recognized (currently, limited to "hex" or "tictactoe"), or if the given vector of nodes is NULL.
  */
-int readInputData(string game, int num_states, string input_data_path, vector<MCTS_Node*>* nodes, const ArgMap& options);
+int readInputData(string game, int num_states, string input_data_path, int start_at, vector<MCTS_Node*>* nodes, const ArgMap& options);
 
 /**
  * Reads in at most NUM_STATES states (for the given GAME) from a single CSV file, given by the FILE_PATH.

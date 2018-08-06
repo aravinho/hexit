@@ -39,6 +39,19 @@ test: $(NEW_TEST_EXE_FILE)
 
 
 
+
+
+bar: obj/experiment.o obj/loader.o
+	$(CC) -o bin/experiment obj/experiment.o obj/loader.o ../../bazel-bin/tensorflow/libtensorflow.so #../../bazel-bin/tensorflow/core/*.lo
+
+obj/experiment.o: src/experiment.cc src/loader.cc
+	$(CC) -c -o obj/experiment.o src/experiment.cc 
+
+obj/loader.o: src/loader.cc src/loader.h
+	$(CC) -c -o obj/loader.o src/loader.cc
+
+
+
 py_test:
 	python tests/python_tests.py
 
@@ -55,7 +68,7 @@ $(NEW_TEST_EXE_FILE): $(NEW_TEST_SRC_OBJ_FILES) $(NEW_TEST_OBJ_FILES)
 	$(CC) -o $(NEW_TEST_EXE_FILE) $(NEW_TEST_OBJ_FILES) $(NEW_TEST_SRC_OBJ_FILES)
 
 $(MCTS_EXE_FILE): $(MCTS_SRC_OBJ_FILES)
-	$(CC) -o $(MCTS_EXE_FILE) $(MCTS_SRC_OBJ_FILES)
+	$(CC) -o $(MCTS_EXE_FILE) $(MCTS_SRC_OBJ_FILES) $(INFERENCE_LIB)
 
 # Test Objects
 obj/hexit-tests.o: tests/hexit_tests.cc tests/test_tictactoe.h

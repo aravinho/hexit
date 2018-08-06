@@ -1,7 +1,11 @@
 import random
 import numpy as np
 
-class HexState:
+"""
+A representation of a particular Hex Board.
+Subclass of EnvState.
+""" 
+class HexState(EnvState):
 
 
     def __init__(self, dimension, board, reward_type="basic"):
@@ -145,6 +149,66 @@ class HexState:
 
     def asNumpyArray(self):
         return np.array(self._board).astype(np.float32)
+
+
+    def makeStateVector(self):
+        """
+        Returns the padded channels + turn mask representation of this board
+        """
+        padded_dim = self._dimension + 4
+        row_size, col_size = padded_dim, padded_dim
+        channel_size = row_size * col_size
+
+        # Initialize to zeros
+        state_vector = np.zeros(2 * channel_size + 2)
+
+        # Pad top and bottom to rows in first channel
+        for col_num in range(col_size):
+            top_row = 0
+            second_row = 1
+            second_to_bottom_row = padded_dim - 2
+            bottom_row = padded_dim - 1
+
+            state_vector[(top_row * row_size) + col_num]  = 1.0
+            state_vector[(second_row * row_size) + col_num]  = 1.0
+            state_vector[(second_to_bottom_row * row_size) + col_num]  = 1.0
+            state_vector[(bottom_row * row_size) + col_num]  = 1.0
+
+        # Pad left and right two cols in second channel
+        for row_num in range(row_size):
+            left_col = 0;
+            second_col = 1;
+            second_to_right_col = padded_dim - 2;
+            right_col = padded_dim - 1;
+
+            state_vector[(row_num * row_size) + left_col + channel_size] = 1.0;
+            state_vector[(row_num * row_size) + second_col + channel_size] = 1.0;
+            state_vector[(row_num * row_size) + second_to_right_col + channel_size] = 1.0;
+            state_vector[(row_num * row_size) + right_col + channel_size] = 1.0;
+
+        # Place player stones
+        for pos in range(self.numActions()):
+            r, c = self.row(pos) + 2, self.col(pos) + 2
+
+            # Player 1 stone in first channel
+            if self.at(pos) == 1:
+                state_vector[(r * row_size) + c] = 1.0
+            
+            # Player 2 stone in second channel
+            if self.at(pos) == -1:
+                state_vector[(r * row_size) + c + channel_size] = 1.0
+
+        # Add the 2 bits for the turn mask
+        assert self.turn() == 1 or self.turn() == -1, "Turn must be 1 or -1"
+        if self.turn() == 1:
+            state_vector[2 * channel_size] = 1.0
+        else:
+            state_vector[2 * channel_size + 1] = 1.0
+
+        assert len(state_vector) == (2 * channel_size) + 2, "state vector size should be " + str((2 * channel_size) + 2)
+        return state_vector
+
+            
 
 
 

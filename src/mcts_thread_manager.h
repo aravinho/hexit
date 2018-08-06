@@ -1,4 +1,5 @@
-#ifndef MCTS_Thread_Manager_H
+#ifndef MCTS_THREAD_MANAGER_H
+#define MCTS_THREAD_MANAGER_H
 
 #include "mcts.h"
 #include <vector>

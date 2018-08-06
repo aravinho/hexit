@@ -76,9 +76,10 @@ private:
 /**
  * Helper function for reading/writing to CSV files in directories.
  * This function takes in the name of a directory, and returns a vector with the (full) filepath of all CSV files in that directory.
+ * Only includes files whose file numbers are greater than or equal to START_AT.
  * Errors if the given directory does not exist or cannot be opened.
  */
-vector<string> csvFilesInDir(string dirname);
+vector<string> csvFilesInDir(string dirname, int start_at=0);
 
 /* Returns an int vector that corresponds to the given CSV string. */
 vector<int> readCSVString(string s);
@@ -141,6 +142,11 @@ void computeSoftmaxWithMask(const vector<double>& logits, const vector<bool>& ma
  * Expects that vals and mask are of the same size.
  */
 int argmaxWithMask(const vector<double>& vals, const vector<bool>& mask);
+
+/** 
+ * Log the given message, followed by the time.
+ */
+void logTime(string message);
 
 
 

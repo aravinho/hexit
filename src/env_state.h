@@ -14,6 +14,9 @@ class EnvState {
 
 public:
 
+	virtual ~EnvState() {}
+
+
 	/**
 	 * Returns which player has won in this state (0 if non-terminal state).
 	 */
@@ -72,10 +75,16 @@ public:
 
 	/* Returns the board vector, represented as a CSV string. */
 	virtual string asCSVString() const = 0; 
+
 };
 
 
-
+/**
+ * Unpacks a CSV string into an EnvState, whose dynamic type is determined by GAME.
+ * If game == "hex", for example, this function unpacks the CSV string into a HexState instance.
+ * Any added information to create the instance is expected to be in the OPTIONS map.
+ * Returns a pointer to the newly created instance.
+ */
 EnvState* stateFromCSVString(string game, string csv_string, const ArgMap& options);
 
 #endif

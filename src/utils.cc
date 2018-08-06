@@ -1,10 +1,11 @@
 #include "utils.h"
+
 #include <random>
 #include <cfloat>       // std::numeric_limits
 #include <dirent.h>
 #include <sstream>
 #include <iomanip>      // std::setprecision
-
+#include <ctime>
 
 
 using namespace std;
@@ -95,7 +96,7 @@ bool ArgMap::contains(string key) const {
 
 
 // list of all CSV files in a directory
-vector<string> csvFilesInDir(string dirname) {
+vector<string> csvFilesInDir(string dirname, int start_at) {
 
 	// make sure the given directory name ends with a slash
 	ASSERT(dirname.size() > 0, "Cannot have empty directory name");
@@ -121,7 +122,9 @@ vector<string> csvFilesInDir(string dirname) {
         	string ext = filename.substr(filename.size() - 4);
         	if (ext == ".csv") {
         		int file_num = stoi(filename.substr(0, filename.size() - 4));
-        		csv_file_numbers.push_back(file_num);
+        		if (file_num >= start_at) {
+        			csv_file_numbers.push_back(file_num);
+        		}
         	}
         }
     }
@@ -289,7 +292,7 @@ double randomDouble(double lower_bound, double upper_bound) {
 void printVector(const vector<double>& vec, string name) {
 	cout << name << ":\t\t\t";
 	for (double d : vec) {
-		cout << setprecision(3) << d << "\t\t\t";
+		cout << setprecision(3) << d << "\t\t";
 	}
 	cout << endl;
 }
@@ -298,7 +301,7 @@ void printVector(const vector<double>& vec, string name) {
 void printVector(const vector<int>& vec, string name) {
 	cout << name << ":\t\t\t";
 	for (int d : vec) {
-		cout << d << "\t\t\t";
+		cout << d << "\t\t";
 	}
 	cout << endl;
 }
@@ -376,6 +379,17 @@ int argmaxWithMask(const vector<double>& vals, const vector<bool>& mask) {
 	}
 	return max_index;
 
+}
+
+
+void logTime(string message) {
+	time_t now = time(NULL);
+	tm* ptm = localtime(&now);
+	char time_str[32];
+	// Format: Mo, 15.06.2009 20:20:00
+	strftime(time_str, 32, "%a, %d.%m.%Y %H:%M:%S", ptm);  
+
+	cout << message << ": " << time_str << endl;
 }
 
 

@@ -1,7 +1,8 @@
 #ifndef MAIN_H
 #define MAIN_H
 
-#include "mcts_thread_manager.h"
+//#include "mcts_thread_manager.h"
+#include "mcts.h"
 #include <vector>
 
 /**
@@ -21,6 +22,15 @@
  */
 void parseArgs(int argc, char* argv[], ArgMap* arg_map, int start_index=1);
 
+
+/**
+ * Worker thread function (for thread THREAD_NUM) that runs vanilla MCTS (without an NN apprentice).
+ * This function runs MCTS from the root node states given in the NODES vector.
+ * It is responsible for nodes starting at index START, up till but not including index END.
+ * For every one of these nodes, runs simulations to a max_depth of MAX_DEPTH, and logs after the completion of
+ * every batch of LOG_EVERY nodes.
+ */
+void threadFunc(int thread_num, vector<MCTS_Node*>* nodes, int start, int end, int max_depth=DEFAULT_MAX_DEPTH, int log_every=DEFAULT_LOG_EVERY);
 
 
 /** 

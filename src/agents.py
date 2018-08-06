@@ -1,5 +1,7 @@
 from exit_nn import *
 from hex import HexState
+from hex_nn import HexNN
+
 
 class GameAgent(object):
     """
@@ -26,42 +28,50 @@ class NNAgent(GameAgent):
     The NNAgent class chooses actions by having a neural network predict optimal actions for the given state.
     """
 
-    def __init__(self, game, model_spec, model_path, sample=True):
+    def __init__(self, nn, model_path, sample=True):
         """
-        The "game" is a string that specifies what game this agent is playing.
-        The "model_spec" argument is the name of the spec file for the model (see comments for ExitNN constructors)
-        The model_path argument is a string for the filepath at which the saved NN model sits.
+        The nn argument specifies the NN that will be choosing actions.
+        The model_path argument allows us to restore a model from a checkpoint file.
         The sample argument tells the NN whether to sample the best action.
         If false, it just chooses the action with the highest score.
         """
-        self.game = game
-        self.model_spec = model_spec
         self.model_path = model_path
         self.sample = sample
-        self.nn = ExitNN(model_spec=model_spec) # Eventually customize args to NN based on which game
+        self.nn = nn
+        self.nodes = None # will be set by restoreModel
+
+    def restoreModel(self, sess):
+        """
+        Restores this agent's NN model from disk, and stores the output node, so it can quickly run forward pass inference
+        """
+        self.nn.restoreCheckpoint(sess, self.model_path)
+        self.nodes = self.nn.getFromCollection()
 
 
-    def getAction(self, state):
+    def predictBatch(self, states, sess):
+        """
+        Given a batch of state vectors.
+        Makes predictions for them.
+        Returns an array of chosen actions.
+        """
+        num_states = states.shape[0]
+        chosen_actions = self.nn.predict(states, sess, self.model_path, nodes=self.nodes, sample=self.sample)
+        return chosen_actions
+
+
+    def getAction(self, state, sess):
         """
         Returns a legal action for the given state. The action is chosen by the NN.
         If the NN keeps repeatedly suggesting illegal actions, eventually error.
         """
 
         # create np array, feed to predict method
-        state = state.asNumpyArray()
-        
-        chosen_action = -1
-        legal_action = False
-        t = 0
-        while not legal_action and t < 10:
-            chosen_action = self.nn.predictSingle(state, self.model_path, self.sample)
-            if state.isLegalAction(chosen_action):
-                legal_action = True
-            t += 1
+        state_vector = state.makeStateVector()
+        chosen_action = self.nn.predict(state_vector, sess, self.model_path, nodes=self.nodes, sample=self.sample)
+        if not state.isLegalAction(chosen_action):
+            chosen_action = state.randomAction()
 
-        assert chosen_action != -1, "No legal action could be found by NNAgent"
-
-        return action
+        return chosen_action
 
 
 class RandomAgent(GameAgent):
@@ -88,6 +98,7 @@ class UserAgent(GameAgent):
 
     def __init__(self, game):
         self.game = game
+
 
     def getAction(self, state):
         """

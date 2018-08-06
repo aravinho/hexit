@@ -1,4 +1,5 @@
 #ifndef PLAY_HEX_H
+#define PLAY_HEX_H
 
 #include <vector>
 #include "mcts.h"
@@ -39,10 +40,3 @@ public:
 void playTictactoe(TictactoeAgent& p1_agent, TictactoeAgent& p2_agent);
 
 #endif
-
-/*
-MCTS_Node* node = (new MCTS_Node(board, true, num_simulations))->sampleActions(sample_actions);
-	node = runAllSimulations(node, ad, max_depth);
-	vector<int>* action_counts = node->getActionCounts();
-	int action = indexOfMax(action_counts);
-	return action;*/

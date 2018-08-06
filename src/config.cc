@@ -2,10 +2,9 @@
 
 using namespace std;
 
+/* Default values used by all parts of the system. */
 
-
-
-set<string> GAME_OPTIONS = {"tictactoe", "hex"};
+set<string> GAME_OPTIONS = {"tictactoe"};
 
 string DEFAULT_GAME = "hex";
 int DEFAULT_HEX_DIM = 5;
@@ -29,5 +28,8 @@ bool DEFAULT_USE_RAVE = false;
 double DEFAULT_C_B = 0.05;
 double DEFAULT_C_RAVE = 3000;
 double DEFAULT_W_A = 40;
+
+int DEFAULT_START_AT = 0;
+
 
 

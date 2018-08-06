@@ -1,310 +1,335 @@
+from utils import *
+from config import *
+
 import numpy as np 
 import scipy as sp 
 import tensorflow as tf 
 import os
 
-import pandas as pd
-import glob
 from sklearn.metrics import accuracy_score
 import datetime, time
 import random
+from sklearn.model_selection import train_test_split
 
 
 
-def convert_dist_to_argmax(dist_labels, num_classes=9):
-    """Convert class labels from scalars to one-hot vectors"""
-    argmax_labels = np.zeros_like(dist_labels)
-    argmax_labels[np.arange(len(dist_labels)), dist_labels.argmax(1)] = 1
-    return argmax_labels
-
-class ExitNN:
-
-    def __init__(self, model_spec="", print_every=100, save_every=1000):
-        self.print_every = print_every
-        self.save_every = save_every
-
-        self.input_num_units = 9
-        self.num_hidden_layers = 1
-        self.hidden_num_units = 200
-        self.output_num_units = 9
-        self.weights = {}
-        self.biases = {}
-
+"""
+A class for a Neural Network apprentice for the Expert Iteration Algorithm.
+Implements common functionality like train/predict, save/restore
+Inherited by subclasses (HexNN, etc) which implement the specific model parameters specific to a certain MDP/NN architecture.
+"""
+class ExitNN(object):
 
 
     def saveCheckpoint(self, sess, model_ckpt_dir):
+        """
+        Saves the session to the given directory, creating the directory if it doesn't already exist.
+        """
         saver = tf.train.Saver()
         if not os.path.exists(model_ckpt_dir):
             os.makedirs(model_ckpt_dir)
         save_path = saver.save(sess, model_ckpt_dir)
 
-        ts = time.time()
-        ts = datetime.datetime.fromtimestamp(ts).strftime('%Y-%m-%d %H:%M:%S')
+        writeLog("Model saved to " + model_ckpt_dir)
 
 
 
     def restoreCheckpoint(self, sess, model_ckpt_dir):
-        if not os.path.exists(model_ckpt_dir):
-            raise IOError("Cannot restore model from " + model_ckpt_dir)
+        """
+        Restores the meta-graph and model from from the given directory.
+        The directory must exist.
+        """
+        assert os.path.exists(model_ckpt_dir), "Cannot restore model from " + model_ckpt_dir
         saver = tf.train.import_meta_graph(model_ckpt_dir + '.meta')
         saver.restore(sess, model_ckpt_dir)
         
-        ts = time.time()
-        ts = datetime.datetime.fromtimestamp(ts).strftime('%Y-%m-%d %H:%M:%S')
+        writeLog("Model restored from " + model_ckpt_dir, should_log=False)
 
 
-    def loadTrainData(self, base_dir, split=0.75, use_argmax=True):
-        
+    def loadData(self, base_dir, begin_from=DEFAULT_BEGIN_FROM, max_rows=DEFAULT_MAX_ROWS):
+        """
+        Reads in data from CSV files.
+        The "states" (X) are stored in BASE_DIR/states/*.csv, where * is a file number (0 indexed).
+        The "action distributions" (Y) are stored in BASE_DIR/action_distributions/*.csv, where files are indexed as above.
+        These directories must exist.
+        Reads at most MAX_ROWS points.
+        Begins reading from the file numbered BEGIN_FROM.
+        Reads the data into a Pandas Dataframe, and then converts it to Numpy arrays
+        Returns the tuple of Numpy arrays (x, y), where "x" corresponds to states, and "y" to values.
+        """
+
+        writeLog("Loading training data from " + base_dir)
+
+        # Grab the X and Y subdirectories and make sure they exist
         if base_dir[-1] != '/':
             base_dir += '/'
-        data_dir = base_dir + 'data/'
-        labels_dir = base_dir + 'labels/'
+        data_dir = base_dir + 'states/'
+        labels_dir = base_dir + 'action_distributions/'
 
         assert os.path.exists(base_dir), "Cannot load data from directory does not exist " + data_dir
         assert os.path.exists(data_dir), "Cannot load training data from directory " + data_dir
         assert os.path.exists(labels_dir), "Cannot load training labels from directory " + labels_dir
 
-        data_df = pd.concat([pd.read_csv(f, header=None) for f in glob.glob(data_dir + '*.csv')])
-        labels_df = pd.concat([pd.read_csv(f, header=None) for f in glob.glob(labels_dir + '*.csv')])
 
-        data_x = data_df.values.astype(np.float32)
-        data_y = labels_df.values.astype(np.float32)
-        if use_argmax:
-            data_y = convert_dist_to_argmax(data_y)
+        # Read in both states and action distributions as Pandas DataFrames
+        data_df = readCSVFiles(data_dir, begin_from=begin_from, max_rows=max_rows)
+        labels_df = readCSVFiles(labels_dir, begin_from=begin_from, max_rows=max_rows)
+        
+        # Convert these to Numpy arrays
+        x = data_df.values.astype(np.float32)
+        y = labels_df.values.astype(np.float32)
+        
+        assert x.shape[0] == y.shape[0], "Must be same number of training points and labels"
+        num_points = x.shape[0]
+        writeLog("Loaded " + str(num_points) + " states and " + str(num_points) + " action_distributions")
+        return (x, y)
+        
+        # train_x, train_y, val_x, val_y = self.randomSplit(train_x, train_y, split)
 
+        # Split into Train and Val sets
         num_datapoints = data_x.shape[0]
+        train_x, val_x, train_y, val_y = train_test_split(data_x, data_y, test_size=(1 - split)) # sklearn function
 
-        split_size = int(num_datapoints * split)
 
-        train_x, val_x = data_x[:split_size], data_x[split_size:]
-        train_y, val_y = data_y[:split_size], data_y[split_size:]
+        writeLog("Loaded " + str(num_train_datapoints) + " train points and " + str(num_val_datapoints) + " validation points")
 
         return (train_x, train_y, val_x, val_y)
 
-    def loadPredictData(self, data_file):
+
+
+    def loadPredictData(self, data_file, max_rows=DEFAULT_MAX_ROWS):
+        """
+        Reads in data from a single CSV file, first to a Pandas DataFrame.
+        Convert the DataFrame to a numpy array and returns it.
+        The file must exist.
+        Reads at most max_rows rows.
+        """
+        assert len(data_file) > 4 and data_file[-4:] == ".csv", data_file + " is not a valid CSV file"
         assert os.path.exists(data_file), "Cannot load prediction data from " + data_file
-        data_df = pd.read_csv(data_file, header=None)
+
+        data_df = pd.read_csv(data_file, header=None, nrows=max_rows)
         pred_x = data_df.values.astype(np.float32)
         return pred_x
 
-    def writePredOutputToFile(self, output, outfile):
-        np.savetxt(outfile, output, delimiter=',', fmt='%0.4f')
 
 
 
-    def createBatch(self, data, labels, batch_size, dataset_length):
-        """Create batch with random samples and return appropriate format"""
-        batch_mask = np.random.choice(dataset_length, batch_size) # truly random every time
-
-        input_num_units, output_num_units = data.shape[1], labels.shape[1]
-        
-        batch_x = data[[batch_mask]].reshape(-1, input_num_units)
-        batch_y = labels[[batch_mask]].reshape(-1, output_num_units)
-            
-        return batch_x, batch_y
-
-
-    def buildGraph(self):
-
-        # define placeholders
-        self.x = tf.placeholder(tf.float32, [None, self.input_num_units])
-        self.y = tf.placeholder(tf.float32, [None, self.output_num_units])
-
-        ### define weights and biases of the neural network
-        
-        # do we need seed?
-        seed = 128
-
-        self.weights = {
-            'hidden': tf.Variable(tf.random_normal([self.input_num_units, self.hidden_num_units], seed=seed)),
-            'output': tf.Variable(tf.random_normal([self.hidden_num_units, self.output_num_units], seed=seed))
-        }
-
-        self.biases = {
-            'hidden': tf.Variable(tf.random_normal([self.hidden_num_units], seed=seed)),
-            'output': tf.Variable(tf.random_normal([self.output_num_units], seed=seed))
-        }
-
-        print "weights", self.weights['hidden'].shape, self.weights['output'].shape
-        print "biases", self.biases['hidden'].shape, self.biases['output'].shape
-
-        hidden_layer = tf.add(tf.matmul(self.x, self.weights['hidden']), self.biases['hidden'])
-        hidden_layer = tf.nn.relu(hidden_layer)
-
-        output_layer = tf.matmul(hidden_layer, self.weights['output']) + self.biases['output']
-        softmax_layer = tf.nn.softmax(output_layer);
-        labels = self.y
-        loss_layer = tf.nn.softmax_cross_entropy_with_logits_v2(labels=labels, logits=output_layer)
-        cost = tf.reduce_mean(loss_layer)
-        
-        return (output_layer, softmax_layer, cost)
 
 
 
     def predictBatch(self, pred_data_file, model_ckpt_dir, outfile):
+        """
+        Runs a forward pass through the NN for all of the points in PRED_DATA_FIlE.
+        Restores the model from the given MODEL_CKPT_DIR.
+        Finally, writes the matrix of predicted labels to the given OUTFILE.
+        """
 
         # load data
         pred_x = self.loadPredictData(pred_data_file)
+        # might need to reshape here
+        pred_x = pred_x.reshape(-1, self.input_num_units)
        
+        # Restore the session and grab the appropriate nodes
         with tf.Session() as sess:
             self.restoreCheckpoint(sess, model_ckpt_dir)
-            softmax = tf.get_collection('softmax')[0]
-            x = tf.get_collection('x')[0]
+            nodes = self.getFromCollection()
+            output = nodes['output']
 
-            num_pred_datapoints = pred_x.shape[0]
-
-            # run the optimizer
-            #softmax_output, = sess.run([softmax], feed_dict={x: pred_x})
-            softmax_vals = softmax.eval({x: pred_x.reshape(-1, self.input_num_units)})
-
+            # make the forward pass
+            feed_dict = self.createFeedDict(nodes, x=pred_x)
+            output_vals = output.eval(feed_dict)
 
             # write the softmax outputs to outfile
-            self.writePredOutputToFile(softmax_vals, outfile)
+            self.writeCSV(output_vals, outfile)
 
 
-    # Not implemented yet
-    def sampleProportionalToScores(self, scores):
-        thresholds = [0.0 for s in range(len(scores))]
 
-        accum_sum = 0.0
-        for pos in range(len(scores)):
-            accum_sum += scores[pos]
-            thresholds[pos] = accum_sum
 
-        r = random.uniform(0.0, accum_sum)
-        for pos in range(1, len(scores) + 1):
-            if r <= thresholds[pos - 1]:
-                return pos - 1
 
-        raise ValueError("Cannot properly sample an action!")
+    def predict(self, states, sess, model_ckpt_dir, nodes=None, sample=DEFAULT_SAMPLE_PREDICTION):
+        """
+        Runs a forward pass through the NN for a single point or a batch (given as a state-vector representation).
+        Restores the model from the given MODEL_CKPT_DIR, or just simply grabs the output node from the given NODES array.
+        If the SAMPLE flag is set, samples a single index proportional to the output of the NN.
+        Otherwise, takes the argmax.
+        This function is used to predict an action given an Environment state.
+        """
 
-            
-    def predictSingle(self, state, model_ckpt_dir, sample=True):
-
-        # load data
-        pred_x = np.array([state])
+        # convert the single D-Dimenional numpy array, convert it into a singleton numpy array of dimension D + 1
+        if len(states.shape) == 1:
+            pred_x = np.array([states])
+        else:
+            pred_x = states
        
-        with tf.Session() as sess:
+        # Restore the session and grab the appropriate nodes
+        if nodes is None:
             self.restoreCheckpoint(sess, model_ckpt_dir)
-            softmax = tf.get_collection('softmax')[0]
-            output = tf.get_collection('output')[0]
-            x = tf.get_collection('x')[0]
+            nodes = self.getFromCollection()
+        output = nodes['output']
 
-            num_pred_datapoints = pred_x.shape[0]
+        # make the forward pass
+        feed_dict = self.createFeedDict(nodes, x=pred_x)
+        action_scores = output.eval(feed_dict)
 
-            # run the optimizer
-            #softmax_output, = sess.run([softmax], feed_dict={x: pred_x})
-            softmax_vals = softmax.eval({x: pred_x.reshape(-1, self.input_num_units)})[0]
-            output_vals = output.eval({x: pred_x.reshape(-1, self.input_num_units)})[0]
+        if sample:
+            actions = sampleProportionalToScores(action_scores) # might need to change base of softmax
+        else:
+            actions = np.argmax(action_scores, axis=1)
 
-            if sample:
-                action = self.sampleProportionalToScores(softmax_vals) # might need to change base of softmax
-            else:
-                action = np.argmax(softmax_vals)
+        # If single state, unpack into int
+        if len(states.shape) == 1:
+            return int(actions[0])
 
-
-
-            return action
+        return actions.astype(int)
 
 
 
+    def createFeedDict(self, x, y=None):
+        """
+        This is the default implementation, which subclasses override.
+        The purpose of this function is to reshape any inputs/labels to the model, as necessary.
+        For example, the HexNN's implementation of this method reshapes the state vector into channels, and separates out the 2-bit turn mask.
+        This function returns a feed_dict, which is meant to be fed directly into any call to sess.run() or eval().
+        """
+        return {"x": x, "y": y}
 
-    # model_ckpt_dir must end with a /
-    def train(self, data_dir, model_ckpt_dir, from_scratch=True, num_epochs=50, batch_size=128, learning_rate=0.01):
-        
-        print "Training model", model_ckpt_dir, "on data", data_dir
+
+    def addToCollection(self, nodes):
+        """
+        NODES is a dictionary of name to node mappings.
+        Add all of these mappings to the "collection", which will be saved to file (and can later be used to restore the model)
+        """
+        for node_name in nodes:
+            tf.add_to_collection(node_name, nodes[node_name])
+
+
+    
+
+
+
+
+
+
+    def train(self, data_dir, model_ckpt_dir, from_scratch=DEFAULT_FROM_SCRATCH, dataset_size=DEFAULT_DATASET_SIZE,
+        split=DEFAULT_TRAIN_VAL_SPLIT, begin_from=DEFAULT_BEGIN_FROM,
+        num_epochs=DEFAULT_NUM_EPOCHS, batch_size=DEFAULT_BATCH_SIZE,
+        learning_rate=DEFAULT_LEARNING_RATE, log_every=DEFAULT_LOG_EVERY_BATCH, save_every=DEFAULT_SAVE_EVERY):
+        """
+        Trains this NN using data from the given DATA_DIR.
+        It is expected that the state vectors are stored in numbered CSV files (0.csv, 1.csv) in DATA_DIR/states/.
+        It is expected that the action distributions (labels) are in matching numbered CSV files in DATA_DIR/action_distributions/.
+
+        If the FROM_SCRATCH flag is true, this starts training a new model from scratch.
+        It also prepares the necessary nodes that must persist (using tf.add_to_collection).
+        Otherwise, it begins by restoring a model and necessary nodes from MODEL_CKPT_DIR, and then resumes training.
+
+        Splits the data into train and validation sets; the fraction of train points is given by the SPLIT argument.
+
+        It trains for the given number of epochs, with minibatches of the given size, using the given learning rate.
+        It logs every LOG_EVERY minibatches, and saves a model checkpoint every SAVE_EVERY epochs.
+
+        It then runs forward pass predictions on the training and validation set, and reports training and validation accuracies.
+        The definition of accuracy is specified by inheriting subclasses.
+
+        Returns a tuple (train_accuracy, validation_accuracy)
+
+        """
+
+        writeLog("Training model " + str(model_ckpt_dir) + " on data from " + str(data_dir))
+        if data_dir[-1] != '/':
+            data_dir += '/'
+        # if model_ckpt_dir[-1] != '/':
+        #     model_ckpt_dir += '/'
 
         with tf.Session() as sess:
 
+            # If training from scratch, build the graph
+            # define the optimizer nodes, and any other important nodes that need to persist (x, y, output at least)
+            # Add the important nodes to the "collection" so they can persist across saves/restores
             if from_scratch:
-                # build computation graph
-                output, softmax, cost = self.buildGraph()
+                # build computation graph, which returns a dictionary of node names to nodes
+                nodes = self.buildGraph()
+
+                # grab important nodes
+                cost = nodes["cost"]
+                x, y, output = nodes["x"], nodes["y"], nodes["output"]
+                turn_mask = nodes["turn_mask"]
+                cost_vec, fc_output = nodes['cost_vec'], nodes['fc_output']
+                
+                # Define the optimizer node and run the initializer
                 optimizer = tf.train.AdamOptimizer(learning_rate=learning_rate).minimize(cost)
+                nodes['optimizer'] = optimizer
                 init = tf.global_variables_initializer()
                 sess.run(init)
 
-                # Add relevant ops to the collection
-                tf.add_to_collection('output', output)
-                tf.add_to_collection('cost', cost)
-                tf.add_to_collection('optimizer', optimizer)
-                tf.add_to_collection('softmax', softmax)
-                tf.add_to_collection('x', self.x)
-                tf.add_to_collection('y', self.y)
+                # Add important nodes to the collection
+                self.addToCollection(nodes)
 
-                x = self.x
-                y = self.y
-
+            # If restoring model from a checkpoint directory, restore the model, and the important nodes
             else:
-                # restore computation graph and variables
                 self.restoreCheckpoint(sess, model_ckpt_dir)
-                optimizer = tf.get_collection('optimizer')[0]
-                cost = tf.get_collection('cost')[0]
-                output = tf.get_collection('output')[0]
-                x = tf.get_collection('x')[0]
-                y =tf.get_collection('y')[0]
+                nodes = self.getFromCollection()
+                optimizer = nodes['optimizer']
+                cost = nodes['cost']
+                output = nodes['output']
+                x = nodes['x']
+                y = nodes['y']
+
         
 
-            # load the training/validation data
-            train_x, train_y, val_x, val_y = self.loadTrainData(data_dir)
-            num_train_datapoints, num_val_datapoints = train_x.shape[0], val_x.shape[0]
-            assert batch_size != 0, "Batch size cannot be 0"
-            num_batches = int(num_train_datapoints / batch_size)
-            print "num_train_datapoints:", num_train_datapoints, ", num_val_datapoints:", num_val_datapoints
-            print "num_batches:", num_batches
-    
+            # load the training data and labels
+            x, y = self.loadData(data_dir, begin_from=begin_from, max_rows=dataset_size)    
+            
+
             # Run training epochs
             for epoch in range(num_epochs):
+
+                # resample the train and val sets every epoch
+                train_x, val_x, train_y, val_y = train_test_split(x, y, test_size=(1 - split))
+                num_train_datapoints, num_val_datapoints = train_x.shape[0], val_x.shape[0]
+                assert batch_size != 0, "Batch size cannot be 0"
+                num_batches = int(num_train_datapoints / batch_size)
+                writeLog("Epoch " + str(epoch) + ": Partitioned dataset into " + str(num_train_datapoints) + " training points and " + str(num_val_datapoints) + " validation points")
+                
                 avg_cost = 0
                 
-                for i in range(num_batches):
-
-                    # Create a minibatch
-                    batch_x, batch_y = self.createBatch(train_x, train_y, batch_size, num_train_datapoints)
-
+                for batch_num in range(num_batches):
+                    # Create a minibatchF
+                    batch_x, batch_y = createBatch(train_x, train_y, batch_size, num_train_datapoints)
                     # run the optimizer
-                    _, c = sess.run([optimizer, cost], feed_dict={x: batch_x, y: batch_y})
-                    
+                    feed_dict = self.createFeedDict(nodes, x=batch_x, y=batch_y)
+                    _, c = sess.run([optimizer, cost], feed_dict)
+
                     # Update the average cost
                     avg_cost += c / num_batches
-                    
-                # log if necessary
-                if (epoch % self.print_every == 0):
-                    print "Epoch:", (epoch+1), "cost =", "{:.5f}".format(avg_cost)
+               
+                    # log if necessary
+                    if (batch_num % log_every == 0 and batch_num != 0):
+                        writeLog("Completed " + str(batch_num) + " batches in epoch " + str(epoch))
+
+                # log after every epoch
+                writeLog("Epoch " + str(epoch) + " cost = " + "{:.5f}".format(avg_cost))
 
                 # save a checkpoint if necessary
-                if (epoch % self.save_every == 0):
+                if (epoch % save_every == 0 and epoch > 0):
                     self.saveCheckpoint(sess, model_ckpt_dir + str(epoch) + '/')
+
+                # Evaluate training and validation accuracy
+                train_accuracy = self.accuracy(nodes, x=train_x, y = train_y, num_points=int(0.25 * num_train_datapoints))
+                val_accuracy = self.accuracy(nodes, x=val_x, y=val_y, num_points=int(1 * num_val_datapoints))
+
+                writeLog("Train Accuracy: " + str(train_accuracy))
+                writeLog("Validation Accuracy: " + str(val_accuracy))
 
 
             # Save the final model
             self.saveCheckpoint(sess, model_ckpt_dir)            
-            print "\nTraining complete!"
+            writeLog("\nTraining complete!")
 
-            # find predictions on train set
-            ole = output.eval({x: train_x.reshape(-1, self.input_num_units), y: train_y})
-            ame = tf.argmax(output, 1).eval({x: train_x.reshape(-1, self.input_num_units), y: train_y})
 
-            pred_temp = tf.equal(tf.argmax(output, 1), tf.argmax(y, 1))
-            pte = pred_temp.eval({x: train_x.reshape(-1, self.input_num_units), y: train_y})
-            print ole[19]
-            print ame[19]
-            print pte[19]
+
             
-            accuracy = tf.reduce_mean(tf.cast(pred_temp, "float")).eval({x: train_x.reshape(-1, self.input_num_units), y: train_y})
-            print "Train Accuracy:", accuracy
 
-
-            ole = output.eval({x: val_x.reshape(-1, self.input_num_units), y: val_y})
-            ame = tf.argmax(output, 1).eval({x: val_x.reshape(-1, self.input_num_units), y: val_y})
-
-            pred_temp = tf.equal(tf.argmax(output, 1), tf.argmax(y, 1))
-            pte = pred_temp.eval({x: val_x.reshape(-1, self.input_num_units), y: val_y})
-            print ole[19]
-            print ame[19]
-            print pte[19]
-            
-            accuracy = tf.reduce_mean(tf.cast(pred_temp, "float")).eval({x: val_x.reshape(-1, self.input_num_units), y: val_y})
-            print "Validation Accuracy:", accuracy
 
 
 

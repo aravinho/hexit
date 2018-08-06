@@ -135,12 +135,72 @@ vector<int> HexState::board() const {
 
 void HexState::makeStateVector(vector<double>* state_vector) const {
 
-	ASSERT(state_vector->size() >= this->numActions(), "The vector passed to makeStateVector must have at least " << this->numActions() << " elements");
+	ASSERT(state_vector != NULL, "The vector passed to makeStateVector Cannot be null");
 
-	// for now, just the board
-	for (int pos = 0; pos < this->numActions(); pos++) {
-		state_vector->at(pos) = (double) this->_board[pos];
+	int padded_dim = this->_dimension + 4;
+	int row_size = padded_dim, col_size = padded_dim;
+	int channel_size = row_size * col_size;
+
+	// initialize with zeros
+	for (int i = 0; i < (2 * channel_size) + 2; i++) {
+		state_vector->push_back(0.0);
 	}
+
+
+	// pad top and bottom in first channel
+	for (int col_num = 0; col_num < col_size; col_num++) {
+		int top_row = 0;
+		int second_row = 1;
+		int second_to_bottom_row = padded_dim - 2;
+		int bottom_row = padded_dim - 1;
+
+		state_vector->at((top_row * row_size) + col_num) = 1.0;
+		state_vector->at((second_row * row_size) + col_num) = 1.0;
+		state_vector->at((second_to_bottom_row * row_size) + col_num) = 1.0;
+		state_vector->at((bottom_row * row_size) + col_num) = 1.0;
+
+	}
+
+	// pad left and right in second channel
+	for (int row_num = 0; row_num < row_size; row_num++) {
+		int left_col = 0;
+		int second_col = 1;
+		int second_to_right_col = padded_dim - 2;
+		int right_col = padded_dim - 1;
+
+		state_vector->at((row_num * row_size) + left_col + channel_size) = 1.0;
+		state_vector->at((row_num * row_size) + second_col + channel_size) = 1.0;
+		state_vector->at((row_num * row_size) + second_to_right_col + channel_size) = 1.0;
+		state_vector->at((row_num * row_size) + right_col + channel_size) = 1.0;
+	}
+
+	// place Player stones
+	for (int pos = 0; pos < this->numActions(); pos++) {
+
+		int r = this->row(pos) + 2;
+		int c = this->col(pos) + 2;
+
+		// Player 1 stone in first channel
+		if (this->_board[pos] == 1) {
+			state_vector->at((r * row_size) + c) = 1.0;
+		}
+
+		// Player 2 stone in second channel
+		if (this->_board[pos] == -1) {
+			state_vector->at((r * row_size) + c + channel_size) = 1.0;
+		}
+	}
+
+	// add the 2 bits for the turn
+	ASSERT(this->turn() == 1 || this->turn() == -1, "Turn must be 1 or -1");
+	if (this->turn() == 1) {
+		state_vector->at(2 * channel_size) = 1.0;
+	} else {
+		state_vector->at(2 * channel_size + 1) = 1.0;
+	}
+
+	// make sure correct size
+	ASSERT(state_vector->size() == (2 * channel_size) + 2, "Channel size should be " << (2 * channel_size) + 2);
 
 }
 
@@ -406,13 +466,20 @@ void HexState::printBoard() const {
 }
 
 string HexState::asCSVString() const {
+
+	// make state vector
+	vector<double>* sv = new vector<double>();
+	this->makeStateVector(sv);
+
 	string s = "";
-	for (int pos = 0; pos < this->numActions(); pos++) {
-		s += to_string(at(pos));
-		if (pos < this->numActions() - 1) {
+	for (int pos = 0; pos < sv->size(); pos++) {
+		s += to_string(sv->at(pos));
+		if (pos < sv->size() - 1) {
 			s += ",";
 		} 
 	}
+
+	delete sv;
 	return s;
 }
 

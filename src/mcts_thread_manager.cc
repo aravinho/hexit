@@ -340,12 +340,7 @@ void MCTS_Thread_Manager::serializeNNQueue(int minibatch_num, string outfile) {
 
   	if (f.is_open()) {
   		for (int state_num = minibatch_num * minibatch_size; state_num < (minibatch_num + 1) * minibatch_size; state_num++) {
-  			
-  			//StateVector* sv = nnQueueGet(state_num);
-  			//string csv_string = sv->asCSVString(tmp_log); // turn on log for now
-  			//f << csv_string << "\n";
   			f << nnQueueGet(state_num)->asCSVString() << "\n";
-  			
   		}
     	f.close();
   	}
@@ -354,32 +349,7 @@ void MCTS_Thread_Manager::serializeNNQueue(int minibatch_num, string outfile) {
   	}
 }
 
-/*
-void MCTS_Thread_Manager::serializeNNQueue(int minibatch_num, string outfile) {
-	ofstream f (outfile);
-  	if (f.is_open()) {
-  		for (int state_num = minibatch_num * minibatch_size; state_num < (minibatch_num + 1) * minibatch_size; state_num++) {
-  			f << to_string(nnQueueGet(state_num)->y) << "\n";
-  		}
-    	f.close();
-  	}
-  	else {
-  		throw invalid_argument("In serializeNNQueue, Unable to open file " + outfile);
-  	}
-}*/
 
-/*void MCTS_Thread_Manager::writeNodesToFile(int minibatch_num, string outfile) {
-	ofstream f (outfile);
-  	if (f.is_open()) {
-  		for (int state_num = minibatch_num * minibatch_size; state_num < (minibatch_num + 1) * minibatch_size; state_num++) {
-  			f << to_string(all_nodes->at(state_num)->x) << "\n";
-  		}
-    	f.close();
-  	}
-  	else {
-  		throw invalid_argument("In writeNodesToFile, Unable to open file " + outfile);
-  	}
-}*/
 
 void MCTS_Thread_Manager::deserializeNNResults(int minibatch_num, string infile, int round) {
 	string line;
@@ -389,9 +359,7 @@ void MCTS_Thread_Manager::deserializeNNResults(int minibatch_num, string infile,
 		vector<ActionDistribution*>* minibatch_nn_results = new vector<ActionDistribution*>(minibatch_size);
 		int state_num = 0;
 		while(getline(f, line)) {
-			//minibatch_nn_results->at(state_num) = new ActionDistribution(stoi(line));
 			minibatch_nn_results->at(state_num) = new ActionDistribution(this->num_actions, line);
-
 			state_num++;
 	    }
 	    f.close();
@@ -404,26 +372,6 @@ void MCTS_Thread_Manager::deserializeNNResults(int minibatch_num, string infile,
 
 }
 
-/*void MCTS_Thread_Manager::deserializeNNResults(int minibatch_num, string infile, int round) {
-	string line;
-	ifstream f (infile);
-
-	if (f.is_open()) {
-		vector<ActionDistribution*>* minibatch_nn_results = new vector<ActionDistribution*>(minibatch_size);
-		int state_num = 0;
-		while(getline(f, line)) {
-			minibatch_nn_results->at(state_num) = new ActionDistribution(stoi(line));
-			state_num++;
-	    }
-	    f.close();
-
-	    submitToNNResults(minibatch_nn_results, minibatch_num, round);
-	}
-	else {
-		throw invalid_argument("In deserializeNNResults, Unable to open file " + infile);
-	}
-
-}*/
 
 
 
