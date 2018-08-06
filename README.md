@@ -53,7 +53,7 @@ N-MCTS is a modification of the traditional [MCTS](https://en.wikipedia.org/wiki
 
 Each simulation starts at the "root" node of the tree, the node corresponding to state *s*.  The simulation can be broken into three phases, **selection**, **rollout** and **backpropagation**.
 
-* **Selection Phase**: We start at the root node, which corresponds to state *s*, and need to decide which action to take.  We compute "scores" for each of the actions.  The score *U(s, a)* for action *a* is a function of the number of visited *s* -- *n(s)* --, the number of times we've taken action *a* from state *s* -- *n(s, a)* -- , and the total reward over all simulations in which we took action *a* from state *s* -- *r(s, a)*.  The formula (below) also contains a term that weights the prediction of the apprentice (which is why it's called *Neural*-MCTS).  We act greedily and take the action that maximizes *U(s,a)* to reach a new node *s'*.  We repeat this process until some pre-determined tree depth, or until we reach a terminal state.
+* **Selection Phase**: We start at the root node, which corresponds to state *s*, and need to decide which action to take.  We compute "scores" for each of the actions.  The score *U(s, a)* for action *a* is a function of *n(s)*, the number of visits to node *s*, *n(s, a)*, the number of times we've taken action *a* from state *s*, and *r(s, a)*, the total reward over all simulations in which we took action *a* from state *s*.  The formula (shown below) also contains a term that weights the prediction of the apprentice (which is why it's called *Neural*-MCTS).  We act greedily and take the action that maximizes *U(s,a)* to reach a new node *s'*.  We repeat this process until some pre-determined tree depth, or until we reach a terminal state.
 
 <p align="center">
 U(s, a) = r(s,a)/n(s,a)   +   beta * sqrt(log n(s) / n(s,a))   +    gamma * apprentice(s, a).
@@ -65,9 +65,9 @@ U(s, a) = r(s,a)/n(s,a)   +   beta * sqrt(log n(s) / n(s,a))   +    gamma * appr
 
 * **Backpropagation** (Do not confuse with Gradient Descent Backpropagation): Once we've reached a terminal state, observe the reward; call it *R*.  Traverse back up the tree along the path for this simulation, and update the statistics for every node.  At every node *v* along this path, increment *n(v)* and *n(v, a*)*, where *a* * is the action we took from state *v* in this simulation.  Increment *r(v, a)* by *R*.  Once all the statistics have been updated, start the next simulation from the root node.
 
-After all the simulations are finished, calculate the number of times each action was chosen from the root.  This is what we defined as our "expert" distribution for state *s*.
+After all the simulations are finished, we calculate the number of times each action was chosen from the root.  This is what we defined as our "expert" distribution for state *s*.
 
-The idea behind MCTS is that, while initially, actions may be chosen at random, over the course of many simulations, nodes will learn which actions have been fruitful, and which should be avoided.  The motivation behind **N**-MCTS is that the prediction of the neural 
+The motivation behind MCTS is that, while initially, actions may be chosen at random, over the course of many simulations, nodes will learn which actions have been fruitful, and which should be avoided.  The motivation behind **N**-MCTS is that the prediction of the neural network can guide the expert in useful directions during the early simulations, in which nodes have sparse statistics.
 
 **Note**: The Anthony, et al. paper calls the action scores *UCT-NN(s, a)* since they are derived from * **U**pper **C**onfidence Bounds for **T**rees, and are bootstrapped with a **Neural** **Network**.*
 
@@ -75,5 +75,6 @@ The idea behind MCTS is that, while initially, actions may be chosen at random, 
 * Sampling actions proportional to their *U*-scores, rather than acting greedily.
 * Running multiple rollouts in parallel, and averaging the eventual reward for a lower variance estimate of reward.
 * Defining a maximum depth after which rollout must begin, in order to avoid taking the same path every simulation.
+* Anthony, et al. propose a variant of the *UCT-NN* formula, with an added term called the Rapid Action Value Estimation (RAVE) term.  This uses an all-moves-as-first heuristic to estimate the value of an action during early simulations in which statistics are scarce.  See Anthony, et al. paper for details.
 
 
