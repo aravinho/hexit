@@ -5,7 +5,7 @@ Inspired by the [Thinking Fast and Slow With Deep Learning and Tree Search](http
 
 
 ## The Expert Iteration Algorithm
-This project uses the Expert Iteration algorithm -- presented by Anthony, et al -- to train an agent tabula rasa to play the board game Hex.  Expert Iteration uses two learners, and "expert" (typically a tree search algorithm) and an "apprentice" (typically a neural network) that iteratively improve each other.
+This project uses the Expert Iteration algorithm -- presented by Anthony, et al and similar to DeepMind's [Alpha Go Zero](https://deepmind.com/blog/alphago-zero-learning-scratch/) -- to train an agent tabula rasa to play the board game Hex.  Expert Iteration uses two learners, and "expert" (typically a tree search algorithm) and an "apprentice" (typically a neural network) that iteratively improve each other.
 
 In this implementation (as in Anthony, et al.) the expert is implemented from scratch using Monte Carlo Tree Search (MCTS), and the apprentice is implemented using a policy network (given a state, predicts a distribution over all the legal actions).  The network uses convolutional and fully connected layers, with ReLu activations and batch normalization. 
 
