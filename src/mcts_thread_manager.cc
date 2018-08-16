@@ -11,6 +11,7 @@
 #include <signal.h>
 #include <fstream>
 #include <stdexcept>
+#include <ctime>
 
 
 using namespace std;
@@ -241,7 +242,7 @@ void MCTS_Thread_Manager::submitToNNQueue(StateVector* state_vector, int node_nu
 		
 	// decrement nodes_left_to_submit for this batch
 	// if last node from this batch to submit, mark batch as master safe, and reset counter
-	int num_nodes_left = decrementNodesLeft(minibatch_num, node_num);
+	decrementNodesLeft(minibatch_num, node_num);
 	
 }
 
@@ -381,9 +382,14 @@ void MCTS_Thread_Manager::deserializeNNResults(int minibatch_num, string infile,
 void MCTS_Thread_Manager::log(string message, bool force, bool suppress) {
 	if (suppress && !force) return;
 	if (!logging && !force) return;
+	time_t now = time(NULL);
+	tm* ptm = localtime(&now);
+	char time_str[32];
+	// Format: Mo, 15.06.2009 20:20:00
+	strftime(time_str, 32, "%a, %d.%m.%Y %H:%M:%S", ptm);  
 	cout_mutex.lock();
 	string offset = "";
-	cout << offset << thread_names->at(this_thread::get_id()) << " - " << message << endl;
+	cout << offset << thread_names->at(this_thread::get_id()) << " - " << message << ": " << time_str << endl;
 	cout_mutex.unlock();
 }
 
@@ -404,7 +410,6 @@ void MCTS_Thread_Manager::invokePythonScript(string script_file, string infile, 
 	char outfile_arg[100]; strcpy(outfile_arg, outfile.c_str());
     char *pythonArgs[]={command, script_name, infile_arg, outfile_arg, NULL};
 
-    pid_t parent = getpid();
     pid_t pid = fork();
 
     // if child process, do the exec
@@ -430,7 +435,6 @@ void MCTS_Thread_Manager::invokeNNScript(string script_file, string state_vector
 	char outfile_arg[100]; strcpy(outfile_arg, action_distribution_file.c_str());
     char *pythonArgs[]={command, script_name, infile_arg, modeldir_arg, outfile_arg, NULL};
 
-    pid_t parent = getpid();
     pid_t pid = fork();
 
     // if child process, do the exec

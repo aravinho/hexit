@@ -29,6 +29,6 @@ DEFAULT_FROM_SCRATCH = True # Whether to begin training a model from scratch, or
 
 DEFAULT_BEGIN_FROM = 0 # The default CSV file in a directory to begin reading from
 DEFAULT_MAX_ROWS = 2**20 # The default number of CSV rows to read from a directory that contains CSV files
-DEFAULT_TRAIN_VAL_SPLIT = 0.75 # The proportion of training data that should be used for training (the rest is for validation)
+DEFAULT_TRAIN_VAL_SPLIT = 0.85 # The proportion of training data that should be used for training (the rest is for validation)
 
 DEFAULT_SAMPLE_PREDICTION = True # The default of whether the NN should sample an action in predictSingle (or use argmax)

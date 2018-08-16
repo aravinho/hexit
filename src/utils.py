@@ -127,9 +127,27 @@ def sortCSVFilesByNumber(filenames):
     ['data/mcts/hex/5/best_model/states/2.csv', 'data/mcts/hex/5/best_model/states/1.csv', 'data/mcts/hex/5/best_model/states/3.csv'], returns
     ['data/mcts/hex/5/best_model/states/0.csv', 'data/mcts/hex/5/best_model/states/1.csv', 'data/mcts/hex/5/best_model/states/2.csv']
     """
+    def getFileNum(filename):
+        try:
+            spl = filename.split('.')[0].split('/')
+            filenum = int(spl[-1])
+            return filenum
+        except:
+            assert False, "Error getting filenumber from filename " + filename
+
+    def getPrefix(filename):
+        try:
+            spl = filename.split('.')[0].split('/')
+            prefix = ""
+            for s in spl[0:-1]:
+                prefix += s + "/"
+            return prefix
+        except:
+            assert False, "Error getting filenumber from filename " + filename
     try:
-        prefix, suffix = filenames[0][0:-5], ".csv"
-        file_nums = [filename[-5] for filename in filenames]
+        prefix = getPrefix(filenames[0])
+        suffix = ".csv"
+        file_nums = [getFileNum(filename) for filename in filenames]
         file_nums.sort()
         return [prefix + str(file_num) + suffix for file_num in file_nums]
     except:
@@ -162,7 +180,6 @@ def readCSVFiles(dirname, begin_from=DEFAULT_BEGIN_FROM, max_rows=DEFAULT_MAX_RO
 
         if num_rows_read >= max_rows or num_rows_left <= 0:
             break
-
     return pd.concat(data_frames)
 
 

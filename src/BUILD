@@ -1,15 +1,4 @@
-load(
-    "//tensorflow:tensorflow.bzl",
-    "tf_cc_binary",
-)
 
-tf_cc_binary(
-    name = "loader",
-    srcs = ["loader.cc"],
-    deps = [
-        "//tensorflow/core:tensorflow",
-    ],
-)
 
 
 cc_library(
@@ -26,6 +15,9 @@ cc_library(
 		"utils.h",
 		"utils.cc"
 		],
+	deps = [
+		":config",
+	]
 )
 
 cc_library(
@@ -68,7 +60,47 @@ cc_library(
 	]
 )
 
-cc_binary(
+
+
+
+load(
+    "//tensorflow:tensorflow.bzl",
+    "tf_cc_binary",
+)
+
+cc_library(
+    name = "inference",
+    srcs = ["inference.cc", "inference.h"],
+    deps = [
+        "//tensorflow/core:tensorflow",
+        ":hex_state"
+    ],
+)
+
+tf_cc_binary(
+    name = "agents",
+    srcs = ["agents.cc", "agents.h"],
+    deps = [
+        "//tensorflow/core:tensorflow",
+        ":hex_state",
+        ":mcts",
+        ":inference"
+    ],
+)
+
+cc_library(
+	name = "mcts_thread_manager",
+	srcs = [
+		"mcts_thread_manager.cc",
+		"mcts_thread_manager.h"
+	],
+	deps = [
+		":mcts"
+	]
+
+)
+
+tf_cc_binary(
 	name = "run_mcts",
 	srcs = [
 		"main.h",
@@ -77,9 +109,14 @@ cc_binary(
 	deps = [
 		":config",
 		":mcts",
-		":utils"
+		":utils",
+		":inference",
+		":mcts_thread_manager"
 	]
 )
+
+
+
 
 
 

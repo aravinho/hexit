@@ -251,7 +251,7 @@ public:
 	 * Increments this->num_node_vists and this->num_edge_traversals(action_num) by 1, and increment this->edge_rewards(action_num) by REWARD.
 	 * CHOSEN_ACTION is expected to be within the correct range, and it is an error if it is not.
 	 */
-	void updateStats(int chosen_action, double reward, bool update_rave_stats=false);
+	inline void updateStats(int chosen_action, double reward, bool update_rave_stats=false);
 
 	/**
 	 * Updates the necessary stats for this node, using the RAVE all-moves-as-first method.
@@ -261,16 +261,27 @@ public:
 	void updateStatsRave(const vector<int>& chosen_actions, double reward);
 
 	
+	/**
+	 * Only relevant if this node is a root node.
+	 * Returns the number of completed tree-search simulations that have occurred from this root node. */
+	int numSimulationsFinished() const;
 
+	/**
+	 * Populates the given vector with the mean rewards for each action. \
+	 * This is the raw mean reward, regardless of RAVE.
+	 */
+	void getMeanRewards(vector<double>* mean_reward_vec) const;
+
+
+	// debug
+	void printMeanReward() const;
+	void printExplorationTerm() const;
 
 
 
 private:
 
-	/**
-	 * Only relevant if this node is a root node.
-	 * Returns the number of completed tree-search simulations that have occurred from this root node. */
-	int numSimulationsFinished() const;
+	
 
 
 

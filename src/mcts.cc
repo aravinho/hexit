@@ -464,8 +464,70 @@ vector<double>* MCTS_Node::edgeRewardsRave() const {
 
 
 
+void MCTS_Node::getMeanRewards(vector<double>* mean_reward_vec) const {
+	ASSERT(mean_reward_vec != NULL, "Cannot have a null mean reward vec");
+	ASSERT(mean_reward_vec->size() >= this->num_actions, "mean_reward_vec must have size at least " << this->num_actions);
+	for (int action_num = 0; action_num < this->num_actions; action_num++) {
+
+		double total_reward = this->edge_rewards->at(action_num);
+		int num_taken = this->num_edge_traversals->at(action_num);
+
+		if (num_taken == 0) {
+			mean_reward_vec->at(action_num) = 0.0;
+		} else {
+			mean_reward_vec->at(action_num) = total_reward / num_taken;
+		}
+		
+	}
+}
 
 
+
+void MCTS_Node::printMeanReward() const {
+	int num_actions = this->getState()->numActions();
+	vector<double> mean_rewards(num_actions, 0.0);
+	for (int action_num = 0; action_num < num_actions; action_num++) {
+		int n; double r;
+		if (this->use_rave) {
+			n = this->num_edge_traversals_rave->at(action_num);
+			r = this->edge_rewards_rave->at(action_num);
+		} else {
+			n = this->num_edge_traversals->at(action_num);
+			r = this->edge_rewards->at(action_num);
+		}
+		if (r != 0) {
+			mean_rewards[action_num] = r / (double (n));
+		}
+	}
+
+	int dim = (int) sqrt(num_actions);
+
+
+	printVector(mean_rewards, "Mean rewards:", dim);
+}
+
+void MCTS_Node::printExplorationTerm() const {
+	int num_actions = this->getState()->numActions();
+	vector<double> exp_terms(num_actions, 0.0);
+	if (N() == 0) {
+
+	}
+	double numer = N();
+	for (int action_num = 0; action_num < num_actions; action_num++) {
+		int n;
+		if (this->use_rave) {
+			n = this->num_edge_traversals_rave->at(action_num);
+		} else {
+			n = this->num_edge_traversals->at(action_num);
+		}
+		if (n != 0) {
+			exp_terms[action_num] = this->c_b * sqrt(log(numer / ((double) n)));
+		}
+	}
+
+	int dim = (int) sqrt(num_actions);
+	printVector(exp_terms, "Exploration Exploitation Term:", dim);
+}
 
 
 
@@ -491,7 +553,8 @@ void MCTS_Node::computeUCT(vector<double>* action_scores) const {
 			avg_reward_term = 0;
 		} else {
 			int turn = this->state->turn();
-			avg_reward_term = (R(a) * turn)/N(a); // make sure we "minimize reward" (maximize negative reward if it is player 2 (player -1)'s turn)
+			avg_reward_term = (R(a) * turn) / N(a);
+			// make sure we "minimize reward" (maximize negative reward if it is player 2 (player -1)'s turn)
 		} 
 
 		avg_log_visits_term = log(N()) / (N(a) + 1);
@@ -562,6 +625,7 @@ void MCTS_Node::computeUCT_Rave(vector<double>* action_scores) const {
 
 void MCTS_Node::computeUCT_U_Rave(vector<double>* action_scores) const {
 
+
 	ASSERT(action_scores != NULL, "Cannot pass a null action_scores vector to computeActionScores");
 	ASSERT(action_scores->size() >= this->num_actions, "The size of action_scores must be at least " << this->num_actions);
 
@@ -617,6 +681,7 @@ void MCTS_Node::computeUCT_NN_Rave(vector<double>* action_scores) const {
 		nn_term = this->w_a * (nn_term_numerator / nn_term_denominator);
 		action_scores->at(action_num) = uct_scores->at(action_num) + nn_term;
 	}
+
 }
 
 
@@ -698,12 +763,13 @@ int MCTS_Node::bestLegalAction(const vector<double>& action_scores) {
 
 
 MCTS_Node* MCTS_Node::chooseBestAction() {
+	profiler.start("chooseBestAction");
 
 	// there are no actions to take in terminal states
 	if (this->isTerminal()) {
+		profiler.stop("chooseBestAction");
 		return this;
 	}
-
 	// compute scores for each action (UCT, UCT-NN, UCT-RAVE, UCT-NN-RAVE, etc)
 	vector<double>* action_scores = new vector<double>(this->num_actions, 0.0);
 	this->computeActionScores(action_scores);
@@ -718,12 +784,18 @@ MCTS_Node* MCTS_Node::chooseBestAction() {
 	
 	// create (or grab if already created) the child node obtained by taking the chosen_action
 	MCTS_Node* child_node = this->makeChild(chosen_action);
+	profiler.stop("chooseBestAction");
 	return child_node;
 }
 
 
 
-void MCTS_Node::updateStats(int chosen_action, double reward, bool update_rave_stats) {
+inline void MCTS_Node::updateStats(int chosen_action, double reward, bool update_rave_stats) {
+	if (update_rave_stats) {
+		profiler.start("updateStats from rave");
+	} else {
+		profiler.start("updateStats");
+	}
 	ASSERT(0 <= chosen_action && chosen_action < this->num_actions, "Cannot update stats for action " << chosen_action);
 	
 	if (!update_rave_stats) {
@@ -735,15 +807,23 @@ void MCTS_Node::updateStats(int chosen_action, double reward, bool update_rave_s
 		this->num_edge_traversals_rave->at(chosen_action) += 1;
 		this->edge_rewards_rave->at(chosen_action) += reward;
 	}
+	if (update_rave_stats) {
+		profiler.stop("updateStats from rave");
+	} else {
+		profiler.stop("updateStats");
+	}
 
 }
 
 
 void MCTS_Node::updateStatsRave(const vector<int>& chosen_actions, double reward) {
+	profiler.start("updateStatsRave");
 	ASSERT(chosen_actions.size() < this->num_actions, "The chosen_actions vector should not have more than " << this->num_actions << " elements");
 	for (int chosen_action : chosen_actions) {
+
 		this->updateStats(chosen_action, reward, true /* update_rave_stats */);
 	}
+	profiler.stop("updateStatsRave");
 }
 
 
@@ -759,9 +839,13 @@ void MCTS_Node::updateStatsRave(const vector<int>& chosen_actions, double reward
 
 MCTS_Node* propagateStats(MCTS_Node* node) {
 
+	profiler.start("propagateStats");
+
 	ASSERT(node != NULL, "Cannot propagate stats starting at a null node");
 	// the given node is terminal, start here and propagate up
 	double reward = ((double) node->getState()->reward());
+	double max_reward = node->getState()->maxReward();
+	reward /= max_reward;
 
 	// track all the actions made in this simulation, to facilitate RAVE stats updates
 	// these actions will be stored in reverse order, with the final action being the zeroth element
@@ -784,7 +868,6 @@ MCTS_Node* propagateStats(MCTS_Node* node) {
 		
 		// if this tree uses RAVE, update additional stats using the all-moves-as-first method
 		if (curr_node->usesRave()) {
-
 			// determine which player's turn it is on this move
 			// add this action to the list of actions that this player has taken in this simulation
 			// update this node's stats using the all-moves-as-first method
@@ -803,6 +886,7 @@ MCTS_Node* propagateStats(MCTS_Node* node) {
 		// if we've reached the top of the tree (a root node), mark this simulation as finished 
 		if (curr_node->isRoot()) {
 			curr_node->markSimulationFinished();
+			profiler.stop("propagateStats");
 			return curr_node;
 		}
 
@@ -818,6 +902,7 @@ MCTS_Node* propagateStats(MCTS_Node* node) {
 
 
 MCTS_Node* rolloutSimulation(MCTS_Node* node) {
+	profiler.start("rolloutSimulation");
 
 	ASSERT(node != NULL, "Cannot roll out simulation starting at a null node");
 
@@ -827,6 +912,8 @@ MCTS_Node* rolloutSimulation(MCTS_Node* node) {
 		int random_action = curr_node->getState()->randomAction();
 		curr_node = curr_node->makeChild(random_action);
 	}
+
+	profiler.stop("rolloutSimulation");
 	return curr_node;
 }
 
@@ -839,11 +926,14 @@ MCTS_Node* runMCTS(MCTS_Node* node, int max_depth, ActionDistribution* ad) {
 	ASSERT(node != NULL, "Cannot have a null node in runMCTS");
 	ASSERT(max_depth > 0, "Must have positive max depth");
 
+	profiler.start("runMCTS");
+
 	MCTS_Node* curr_node = node;
 
 	while (true) {
 
 		ASSERT(curr_node != NULL, "curr_node is NULL");
+
 
 		// if we are at the root and have finished all the simulations, break
 		if (curr_node->isRoot() && curr_node->simulationsFinished()) {
@@ -853,7 +943,6 @@ MCTS_Node* runMCTS(MCTS_Node* node, int max_depth, ActionDistribution* ad) {
 
 		// if terminal state, do stats propagation back up to the root
 		if (curr_node->isTerminal()) {
-			double reward = curr_node->getState()->reward();
 			curr_node = propagateStats(curr_node); // should return root node
 			continue;
 		}
@@ -869,6 +958,7 @@ MCTS_Node* runMCTS(MCTS_Node* node, int max_depth, ActionDistribution* ad) {
 		if (curr_node->requiresNN()) {
 			if (curr_node->neverSubmittedToNN()) {
 				curr_node->markSubmittedToNN();
+				profiler.stop("runMCTS");
 				return curr_node;
 			}
 			// if was previously waiting for AD, grab the given one and set it as a field
@@ -879,11 +969,14 @@ MCTS_Node* runMCTS(MCTS_Node* node, int max_depth, ActionDistribution* ad) {
 			}
 		}
 
+
 		// get the best child and iterate
+
 		curr_node = curr_node->chooseBestAction();
-		
+
 	}
 
+	profiler.stop("runMCTS");
 	return curr_node;
 }
 
@@ -956,7 +1049,6 @@ int writeActionDistributionsToFile(vector<MCTS_Node*>* nodes, string dirname, in
   	string y_filename;
 	ofstream y_file;
 	MCTS_Node* node;
-	vector<int>* action_counts;
 	int file_num;
 
 	int node_num;

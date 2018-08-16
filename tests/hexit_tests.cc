@@ -14,9 +14,9 @@ int main()
 	srand(time(NULL));
 	cout << endl << "Beginning Tests..." << endl << endl;
 	//runTictactoeTests();
-	//runMctsTests();
+	runMctsTests();
 	//runThreadManagerTests();
-	runHexTests();
+	//runHexTests();
 	cout << endl << "Finished Tests..." << endl << endl;
 }
 

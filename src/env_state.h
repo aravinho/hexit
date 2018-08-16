@@ -2,6 +2,7 @@
 #define ENV_STATE_H
 
 #include "utils.h"
+#include "config.h"
 
 #include <vector>
 
@@ -15,7 +16,6 @@ class EnvState {
 public:
 
 	virtual ~EnvState() {}
-
 
 	/**
 	 * Returns which player has won in this state (0 if non-terminal state).
@@ -33,6 +33,11 @@ public:
 	 * Positive if X has won, and negative if O has won.
 	 */
 	virtual double reward() const = 0;
+
+	/**
+	 * Max possible reward from this state.
+	 */
+	virtual double maxReward() const = 0;
 
 	/**
 	 * Returns the state for the board obtained by taking the given action
@@ -76,6 +81,7 @@ public:
 	/* Returns the board vector, represented as a CSV string. */
 	virtual string asCSVString() const = 0; 
 
+
 };
 
 
@@ -86,5 +92,15 @@ public:
  * Returns a pointer to the newly created instance.
  */
 EnvState* stateFromCSVString(string game, string csv_string, const ArgMap& options);
+
+/** 
+ * Returns an "initial state" (an empty board) for the given game.
+ * Currently, only supports Hex.  The dimension is given in the OPTIONS map.
+ */
+EnvState* initialState(string game, const ArgMap& options);
+
+
+
+
 
 #endif

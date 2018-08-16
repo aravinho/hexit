@@ -3,12 +3,52 @@
 #include <random>
 #include <cfloat>       // std::numeric_limits
 #include <dirent.h>
+#include <fstream>
 #include <sstream>
 #include <iomanip>      // std::setprecision
 #include <ctime>
 
 
 using namespace std;
+
+
+/*** Profiler Class ****/
+Profiler profiler;
+
+void Profiler::start(string block_name) {
+	if (block_starts.count(block_name) > 0) {
+		return;
+	}
+	clock_t now = clock();
+	block_starts[block_name] = now;
+	block_counts[block_name] += 1;
+}
+
+void Profiler::stop(string block_name) {
+	ASSERT(block_starts.count(block_name) > 0, "Cannot stop block " << block_name << " that hasn't been started.");
+	clock_t now = clock();
+	clock_t elapsed = now - block_starts[block_name];
+	block_times[block_name] += elapsed;
+	block_starts.erase(block_name);
+}
+
+void Profiler::log(string file_name) {
+	
+	ofstream log_file (file_name);
+	ASSERT(log_file.is_open(), "Unable to open file " << file_name);
+	for (auto block : block_times) {
+		string block_name = block.first;
+		clock_t block_time = block.second;
+		double elapsed_secs = double(block_time) / CLOCKS_PER_SEC;
+
+		int block_count = block_counts[block_name];
+		log_file << block_name << ": " << elapsed_secs << ", " << block_count << "\n";
+
+	}
+
+	log_file.close();
+
+}
 
 
 
@@ -89,6 +129,27 @@ bool ArgMap::contains(string key) const {
 
 
 
+// parses an array of arguments (typically from command line) into an ArgMap.
+void parseArgs(int argc, char* argv[], ArgMap* arg_map, int start_index) {
+
+
+	ASSERT(argc >= 0 && (argc - start_index) % 2 == 0, "There must be an even number of args from start_index till the end");
+	ASSERT(argv != NULL && arg_map != NULL, "Argv or Str_args is NULL");
+	ASSERT(start_index >= 0 && start_index < argc, "Invalid start_index in main parseArgs");
+
+	string option, value;
+
+	int num_pairs = (argc - start_index) / 2;
+	for (int pair_num = 0; pair_num < num_pairs; pair_num += 1) {
+		option = string(argv[(pair_num * 2) + start_index]);
+		ASSERT(option.size() > 2 && option.substr(0, 2) == "--", "Arg options must start with double hyphen");
+		option = option.substr(2);
+		value = string(argv[(pair_num * 2) + 1 + start_index]);
+		arg_map->insert(option, value);
+
+	}
+
+}
 
 
 
@@ -289,19 +350,29 @@ double randomDouble(double lower_bound, double upper_bound) {
 }
 
 
-void printVector(const vector<double>& vec, string name) {
-	cout << name << ":\t\t\t";
+void printVector(const vector<double>& vec, string name, int hex_dim) {
+	cout << name << endl;
+	int i = 0;
 	for (double d : vec) {
 		cout << setprecision(3) << d << "\t\t";
+		i++;
+		if (i % hex_dim == 0) {
+			cout << endl;
+		}
 	}
 	cout << endl;
 }
 
 
-void printVector(const vector<int>& vec, string name) {
-	cout << name << ":\t\t\t";
+void printVector(const vector<int>& vec, string name, int hex_dim) {
+	cout << name << endl;
+	int i = 0;
 	for (int d : vec) {
-		cout << d << "\t\t";
+		cout << d << "\t";
+		i++;
+		if (i % hex_dim == 0) {
+			cout << endl;
+		}
 	}
 	cout << endl;
 }
@@ -364,6 +435,42 @@ void computeSoftmaxWithMask(const vector<double>& logits, const vector<bool>& ma
 }
 
 
+int argmax(const vector<double>& vals) {
+	vector<bool> dummy_mask(vals.size(), true);
+	return argmaxWithMask(vals, dummy_mask);
+}
+
+
+
+int argmax(vector<int>* vec) {
+	int max_index = 0;
+	int max_val = INT_MIN;
+	for (int i = 0; i < vec->size(); i++) {
+		if (vec->at(i) > max_val) {
+			max_index = i;
+			max_val = vec->at(i);
+		}
+	}
+	return max_index;
+}
+
+int argmin(const vector<double>& vals) {
+
+	double min_val = DBL_MAX;
+	int min_index = 0;
+
+	for (int element_num = 0; element_num < vals.size(); element_num++) {
+		if (vals[element_num] < min_val) {
+			min_val = vals[element_num];
+			min_index = element_num;
+		}
+	}
+
+	return min_index;
+}
+
+
+
 int argmaxWithMask(const vector<double>& vals, const vector<bool>& mask) {
 
 	ASSERT(vals.size() == mask.size(), "Vals and mask vectors must be of same size");
@@ -388,8 +495,18 @@ void logTime(string message) {
 	char time_str[32];
 	// Format: Mo, 15.06.2009 20:20:00
 	strftime(time_str, 32, "%a, %d.%m.%Y %H:%M:%S", ptm);  
-
+	
 	cout << message << ": " << time_str << endl;
+}
+
+void logProfile(string message) {
+	time_t now = time(NULL);
+	tm* ptm = localtime(&now);
+	char time_str[32];
+	// Format: Mo, 15.06.2009 20:20:00
+	strftime(time_str, 32, "%a, %d.%m.%Y %H:%M:%S", ptm);  
+	
+	cerr << message << ": " << time_str << endl;
 }
 
 

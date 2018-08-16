@@ -5,8 +5,8 @@ PLAY_EXE_FILE 	= bin/play-hex
 MAIN_OBJ_FILES	= obj/tictactoe.o obj/mcts.o obj/main.o obj/mcts-thread-manager.o obj/config.o
 MAIN_EXE_FILE	= bin/main-exe
 NEW_TEST_EXE_FILE 	= bin/new-hexit-tests
-NEW_TEST_OBJ_FILES	= obj/test-hex.o obj/test-utils.o obj/hexit-tests.o
-NEW_TEST_SRC_OBJ_FILES = obj/hex-state.o
+NEW_TEST_OBJ_FILES	= obj/test-hex.o obj/test-utils.o obj/hexit-tests.o obj/test-mcts.o 
+NEW_TEST_SRC_OBJ_FILES = obj/hex-state.o obj/mcts
 
 MCTS_EXE_FILE = bin/run-mcts
 MCTS_SRC_OBJ_FILES = obj/mcts.o obj/mcts-thread-manager.o obj/hex-state.o obj/tictactoe.o obj/main.o obj/config.o obj/utils.o obj/env-state.o

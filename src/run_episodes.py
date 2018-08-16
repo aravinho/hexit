@@ -167,7 +167,7 @@ def runNNEpisodes(game, game_specs, num_episodes, p1_agent, p2_agent, batch_size
 
     # Determine the number of batches
     num_batches = num_episodes // batch_size
-    if num_batches > 0 and num_episodes % num_batches > 0:
+    if num_batches == 0 and num_episodes % num_batches > 0:
         num_batches += 1
 
     num_total_finished = 0
@@ -191,7 +191,7 @@ def runNNEpisodes(game, game_specs, num_episodes, p1_agent, p2_agent, batch_size
             active_states = [HexState(dimension, [0 for pos in range(dimension ** 2)]) for i in range(batch_size)]
             # Keep track of finished episodes
             finished_episodes = [False for i in range(batch_size)]
-            num_finished_episodes = batch_size
+            num_unfinished_episodes = batch_size
             # Determine after how many states the episode will artificially terminate
             terminate_at = [weightedSample(termination_weights) for i in range(batch_size)]
             # initialize the turn to 1
@@ -199,7 +199,7 @@ def runNNEpisodes(game, game_specs, num_episodes, p1_agent, p2_agent, batch_size
 
             # Repeat until all the episodes in this batch are over
             num_moves = 0
-            while num_finished_episodes > 0:
+            while num_unfinished_episodes > 0:
             
                 # for every active episode in this batch, submit the state vector to the batch
                 for batch_index in range(batch_size):
@@ -215,7 +215,7 @@ def runNNEpisodes(game, game_specs, num_episodes, p1_agent, p2_agent, batch_size
 
                     if (state.isTerminalState() or num_moves == terminate_at[batch_index]) and not finished_episodes[batch_index]:
                         finished_episodes[batch_index] = True
-                        num_finished_episodes -= 1
+                        num_unfinished_episodes -= 1
                         num_total_finished += 1
                         if num_total_finished % log_every == 0:
                             writeLog("Finished " + str(num_total_finished) + " episodes")

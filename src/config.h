@@ -36,6 +36,9 @@ extern int DEFAULT_LOG_EVERY; // the default number of states after which to log
 extern int DEFAULT_STATES_PER_FILE; // the default number of states to write to each output file (1024)
 extern int DEFAULT_START_AT; // the default file number from which to start reading states (0; means start reading from 0.csv in the given data directory)
 
+extern int DEFAULT_NN_BATCH_SIZE; // how many states to send to the NN for inference in a single batch
 
+extern bool DEFAULT_DISPLAY_STATE; // whether to display the state during episodes
 
+extern string DEFAULT_PROFILER_LOG_PATH; // file to log the profiler info
 #endif

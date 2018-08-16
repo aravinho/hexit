@@ -45,6 +45,10 @@ HexState::~HexState() {
 
 }
 
+int HexState::dimension() const {
+	return this->_dimension;
+}
+
 int HexState::winner() const {
 	return _winner;
 }
@@ -74,6 +78,25 @@ double HexState::reward() const {
 	}
 
 	return 0.0;
+}
+
+double HexState::maxReward() const {
+
+	if (this->_reward_type == "basic") {
+		return 1.0;
+	}
+
+	if (this->_reward_type == "win_fast") {
+		int num_pieces_played = 0;
+		for (int piece : this->board()) {
+			if (piece != 0) {
+				num_pieces_played += 1;
+			}
+		}
+		return (double) ((this->numActions() + 1) - num_pieces_played);
+	}
+
+	ASSERT(false, "Only basic and win fast rewards supported");
 }
 
 int HexState::turn() const {
@@ -119,6 +142,14 @@ int HexState::randomAction() const {
 		cout << "NUm legal moves <= 0" << endl;
 		this->printBoard();
 		cout << "is terminal? " << this->isTerminalState() << endl;
+		for (int pos = 0; pos < 25; pos++) {
+			cout << this->_board[pos] << " ";
+			if (this->_board[pos] == 0) {
+				cout << "POS: " << pos << endl;
+				//this->_legal_actions.insert(pos);
+			}
+		}
+		cout << endl;
 	}
 	ASSERT(num_legal_moves > 0, "No legal moves available from this hex state.");
 	

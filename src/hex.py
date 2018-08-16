@@ -3,12 +3,11 @@ import numpy as np
 
 """
 A representation of a particular Hex Board.
-Subclass of EnvState.
 """ 
-class HexState(EnvState):
+class HexState:
 
 
-    def __init__(self, dimension, board, reward_type="basic"):
+    def __init__(self, dimension, board, reward_type="win_fast"):
         """
         Creates a new Hex game state.  The board is of size DIMENSION x DIMENSION, and the stones are specified by the given BOARD vector.
         1 represents a white stone, and -1 represents a black.

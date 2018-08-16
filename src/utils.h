@@ -1,6 +1,8 @@
 #ifndef UTILS_H
 #define UTILS_H
 
+#include "config.h"
+
 #include <string>
 #include <map>
 #include <iostream>
@@ -9,7 +11,6 @@ using namespace std;
 
 /* ASSERT Macro. */
 
-#ifndef NDEBUG
 #   define ASSERT(condition, message) \
     do { \
         if (! (condition)) { \
@@ -18,10 +19,60 @@ using namespace std;
             std::terminate(); \
         } \
     } while (false)
-#else
-#   define ASSERT(condition, message) do { } while (false)
-#endif
 
+/* Macros for profiling. */
+/*#  define ENTER(func_name) \
+   	{ \
+   		time_t start = clock(); \
+   	}
+
+
+# 	define EXIT(func_name) \
+   	{ \
+   		time_t end = clock(); \
+   		if (function_times.count(func_name) == 0) { \
+   			function_times[func_name] = 0; \
+   			function_counts[func_name] = 0; \
+   		} \
+   		function_times[func_name] += (end - start); \
+   		function_counts[func_name] += 1; \
+   	}
+
+
+
+
+extern map<string, time_t> function_times;
+extern map<string, int> function_counts;*/
+
+/* Class used to profile blocks of code, since no gprof on Mac. */
+
+class Profiler {
+public:
+
+	/* Marks entrance into a particular block of code, with the given name. */
+	void start(string block_name);
+
+	/* Marks the exit from a particular block of code with the given name, and calculates the time spent in that block. */
+	void stop(string block_name);
+
+	/* Logs the profile info to the given file. */
+	void log(string file_name);
+
+private:
+
+	/* Tracks the time at which blocks are entered. */
+	map<string, clock_t> block_starts; 
+
+	/* Tracks the total time spent in blocks. */
+	map<string, clock_t> block_times;
+
+	/* Number of times each block was run. */
+	map<string, int> block_counts;
+
+
+};
+
+extern Profiler profiler;
 
 /* Small class to read and store command line arguments. */
 
@@ -66,7 +117,22 @@ private:
 };
 
 
-
+/**
+ * Parses command line arguments into a map of "key-value" pairs.
+ * The arguments are expected to be in pairs.  The "key" is of the format --option, and the value is another string.
+ * For example, the given array of char-pointer args may look like:
+ *
+ * ["--game", "hex", "--hex_dim", "5"]
+ * 
+ * This function would populate the map ARG_MAP (which is expected to be empty initially) to look like {"game" --> "hex", "hex_dim" --> "5"}
+ * This function begins parsing arguments at the given START_INDEX.  This defaults to 1, because the first command line argument is
+ * usually the name of the executable.
+ * The first argument num_args gives the number of elements in the entire argv array (starting from element 0)
+ *
+ * 
+ * Errors if there are an odd number of elements in args, or if any of the "keys" do not start with "--".
+ */
+void parseArgs(int argc, char* argv[], ArgMap* arg_map, int start_index=1);
 
 
 /**** Utility Functions to read from files ****/
@@ -122,10 +188,10 @@ string asCSVString(const vector<double>& vec);
 double randomDouble(double lower_bound, double upper_bound);
 
 /* Prints a vector of doubles in a human-readable format, and also prints the given name. */
-void printVector(const vector<double>& vec, string name);
+void printVector(const vector<double>& vec, string name, int hex_dim=DEFAULT_HEX_DIM);
 
 /* Prints a vector of ints in a human-readable format, and also prints the given name. */
-void printVector(const vector<int>& vec, string name);
+void printVector(const vector<int>& vec, string name, int hex_dim=DEFAULT_HEX_DIM);
 
 /* Given a vector of weights, returns K with probability proportional to the K-th weight. */
 int sampleProportionalToWeights(const vector<double>& weights);
@@ -137,6 +203,22 @@ int sampleProportionalToWeights(const vector<double>& weights);
  */
 void computeSoftmaxWithMask(const vector<double>& logits, const vector<bool>& mask, vector<double>* softmaxes);
 
+/** 
+ * Returns the index of the largest elementin vals.
+ */
+int argmax(const vector<double>& vals);
+
+/** 
+ * Returns the index of the smallest element in vals.
+ */
+int argmin(const vector<double>& vals);
+
+
+/**
+ * Returns the index of the largest element.
+ */
+int argmax(vector<int>* vec);
+
 /**
  * Returns the index of the largest element in vals, provided that mask[index] == true. 
  * Expects that vals and mask are of the same size.
@@ -147,6 +229,11 @@ int argmaxWithMask(const vector<double>& vals, const vector<bool>& mask);
  * Log the given message, followed by the time.
  */
 void logTime(string message);
+
+/**
+ * Writes the given message to stderr, followed by the time.  Used to profile code. 
+ */
+void logProfile(string message);
 
 
 

@@ -210,7 +210,7 @@ class ExitNN(object):
 
 
 
-    def train(self, data_dir, model_ckpt_dir, from_scratch=DEFAULT_FROM_SCRATCH, dataset_size=DEFAULT_DATASET_SIZE,
+    def train(self, data_dir, model_ckpt_dir, new_model_ckpt_dir, from_scratch=DEFAULT_FROM_SCRATCH, dataset_size=DEFAULT_DATASET_SIZE,
         split=DEFAULT_TRAIN_VAL_SPLIT, begin_from=DEFAULT_BEGIN_FROM,
         num_epochs=DEFAULT_NUM_EPOCHS, batch_size=DEFAULT_BATCH_SIZE,
         learning_rate=DEFAULT_LEARNING_RATE, log_every=DEFAULT_LOG_EVERY_BATCH, save_every=DEFAULT_SAVE_EVERY):
@@ -235,7 +235,8 @@ class ExitNN(object):
 
         """
 
-        writeLog("Training model " + str(model_ckpt_dir) + " on data from " + str(data_dir))
+        writeLog("Training model " + str(new_model_ckpt_dir) + " on data from " + str(data_dir))
+        print "learning rate:", learning_rate
         if data_dir[-1] != '/':
             data_dir += '/'
         # if model_ckpt_dir[-1] != '/':
@@ -282,14 +283,12 @@ class ExitNN(object):
             
 
             # Run training epochs
+            train_x, val_x, train_y, val_y = train_test_split(x, y, test_size=(1 - split))
             for epoch in range(num_epochs):
-
-                # resample the train and val sets every epoch
-                train_x, val_x, train_y, val_y = train_test_split(x, y, test_size=(1 - split))
+                
                 num_train_datapoints, num_val_datapoints = train_x.shape[0], val_x.shape[0]
                 assert batch_size != 0, "Batch size cannot be 0"
                 num_batches = int(num_train_datapoints / batch_size)
-                writeLog("Epoch " + str(epoch) + ": Partitioned dataset into " + str(num_train_datapoints) + " training points and " + str(num_val_datapoints) + " validation points")
                 
                 avg_cost = 0
                 
@@ -305,25 +304,27 @@ class ExitNN(object):
                
                     # log if necessary
                     if (batch_num % log_every == 0 and batch_num != 0):
-                        writeLog("Completed " + str(batch_num) + " batches in epoch " + str(epoch))
+                        writeLog("Completed " + str(batch_num) + " out of " + str(num_batches) + " batches in epoch " + str(epoch))
 
                 # log after every epoch
                 writeLog("Epoch " + str(epoch) + " cost = " + "{:.5f}".format(avg_cost))
 
                 # save a checkpoint if necessary
                 if (epoch % save_every == 0 and epoch > 0):
-                    self.saveCheckpoint(sess, model_ckpt_dir + str(epoch) + '/')
+                    self.saveCheckpoint(sess, new_model_ckpt_dir + "_" + str(epoch) + '/')
 
                 # Evaluate training and validation accuracy
-                train_accuracy = self.accuracy(nodes, x=train_x, y = train_y, num_points=int(0.25 * num_train_datapoints))
-                val_accuracy = self.accuracy(nodes, x=val_x, y=val_y, num_points=int(1 * num_val_datapoints))
+                train_accuracy, l1_dist_train = self.accuracy(nodes, x=train_x, y = train_y, num_points=int(0.25 * num_train_datapoints))
+                val_accuracy, l1_dist_val = self.accuracy(nodes, x=val_x, y=val_y, num_points=int(1 * num_val_datapoints))
 
                 writeLog("Train Accuracy: " + str(train_accuracy))
                 writeLog("Validation Accuracy: " + str(val_accuracy))
-
+                writeLog("Mean L1 Distance (Train): " + str(l1_dist_train))
+                writeLog("Mean L1 Distance (Val): " + str(l1_dist_val))
+ 
 
             # Save the final model
-            self.saveCheckpoint(sess, model_ckpt_dir)            
+            self.saveCheckpoint(sess, new_model_ckpt_dir)            
             writeLog("\nTraining complete!")
 
 

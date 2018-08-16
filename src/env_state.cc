@@ -21,3 +21,21 @@ EnvState* stateFromCSVString(string game, string csv_string, const ArgMap& optio
 	ASSERT(false, "For now, the only game supported is hex");
 
 }
+
+
+EnvState* initialState(string game, const ArgMap& options) {
+
+	if ("game == hex") {
+		int hex_dim = options.getInt("hex_dim", DEFAULT_HEX_DIM);
+		string hex_reward_type = options.getString("hex_reward_type", DEFAULT_HEX_REWARD_TYPE);
+		vector<int> board(pow(hex_dim, 2), 0);
+		return new HexState(hex_dim, board, hex_reward_type);
+	}
+
+	ASSERT(false, "For now, the only game supported is hex");
+
+}
+
+
+
+

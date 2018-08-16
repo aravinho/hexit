@@ -17,12 +17,15 @@ public:
 	 * Also takes in a string which specifies which reward function to use. 
 	 * "basic" means a simple 1/0/-1 reward. "win_fast" means ((num_total_hexagons + 1) - num_hexagons_played) * winner()
 	 */
-	HexState(int dimension, vector<int> board, string reward_type="basic");
+	HexState(int dimension, vector<int> board, string reward_type="win_fast");
 
 	/** 
 	 * Destructor. Nothing to delete.
 	 */
 	~HexState();
+
+	/* Returns the dimension of this board. */
+	int dimension() const;
 
 	/**
 	 * Returns a 0 if the current board has no winner,
@@ -42,6 +45,11 @@ public:
 	 * The specific internals are specified by the _reward_type field (see constructor comment)
 	 */
 	double reward() const;
+
+	/**
+	 * Max possible reward from this state.
+	 */
+	double maxReward() const;
 
 	/**
 	 * Return 1 if it is Player 1's turn in the current board, or -1 if Player 2's turn.

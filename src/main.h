@@ -5,22 +5,7 @@
 #include "mcts.h"
 #include <vector>
 
-/**
- * Parses command line arguments into a map of "key-value" pairs.
- * The arguments are expected to be in pairs.  The "key" is of the format --option, and the value is another string.
- * For example, the given array of char-pointer args may look like:
- *
- * ["--game", "hex", "--hex_dim", "5"]
- * 
- * This function would populate the map STR_ARGS (which is expected to be empty initially) to look like {"game" --> "hex", "hex_dim" --> "5"}
- * This function begins parsing arguments at the given START_INDEX.  This defaults to 1, because the first command line argument is
- * usually the name of the executable.
- * The first argument num_args gives the number of elements in the entire argv array (starting from element 0)
- *
- * 
- * Errors if there are an odd number of elements in args, or if any of the "keys" do not start with "--".
- */
-void parseArgs(int argc, char* argv[], ArgMap* arg_map, int start_index=1);
+
 
 
 /**

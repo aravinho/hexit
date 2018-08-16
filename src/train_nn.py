@@ -25,7 +25,6 @@ def main():
     --from_scratch <whether to begin training the model from scratch or restore from a checkpoint [optional; defaults to True] \
     \
     --model_path <the directory where the model is saved (or will be saved) [required] \
-    --model_spec <the file where the model_spec is saved> [required] \
 
 
     Example:
@@ -45,7 +44,6 @@ def main():
     --from_scratch True \
     \
     --model_path models/hex/5/best_model/ \
-    --model_spec models/hex/5/best_model/spec.json \
 
     """
 
@@ -60,7 +58,7 @@ def main():
 
     model_path = arg_map.getString("model_path", required=True)
 
-    model_spec = arg_map.getString("model_spec", required=True)
+    new_model_path = arg_map.getString("new_model_path", default_val=model_path)
 
     begin_from = arg_map.getInt("begin_from", default_val=DEFAULT_BEGIN_FROM)
 
@@ -73,6 +71,7 @@ def main():
     num_epochs = arg_map.getInt("num_epochs", default_val=DEFAULT_NUM_EPOCHS)
 
     learning_rate = arg_map.getFloat("learning_rate", default_val=DEFAULT_LEARNING_RATE)
+    print "learning rate: ", learning_rate
 
     from_scratch = arg_map.getBoolean("from_scratch", default_val=DEFAULT_FROM_SCRATCH)
     print "from_scratch", from_scratch
@@ -88,7 +87,7 @@ def main():
     model = HexNN(hex_dim)
 
     writeLog('Beginning training dataset of size ' + str(dataset_size))
-    model.train(training_data_path, model_ckpt_dir=model_path, from_scratch=from_scratch, dataset_size=dataset_size, split=split, begin_from=begin_from,
+    model.train(training_data_path, model_ckpt_dir=model_path, new_model_ckpt_dir=new_model_path, from_scratch=from_scratch, dataset_size=dataset_size, split=split, begin_from=begin_from,
         num_epochs=num_epochs, batch_size=batch_size, learning_rate=learning_rate, log_every=log_every, save_every=save_every)
     writeLog('Done training dataset of size ' + str(dataset_size))
 
