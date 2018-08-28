@@ -14,8 +14,10 @@ using namespace std;
 
 /*** Profiler Class ****/
 Profiler profiler;
+bool profiler_on = false;
 
 void Profiler::start(string block_name) {
+	if (!profiler_on) return;
 	if (block_starts.count(block_name) > 0) {
 		return;
 	}
@@ -25,6 +27,7 @@ void Profiler::start(string block_name) {
 }
 
 void Profiler::stop(string block_name) {
+	if (!profiler_on) return;
 	ASSERT(block_starts.count(block_name) > 0, "Cannot stop block " << block_name << " that hasn't been started.");
 	clock_t now = clock();
 	clock_t elapsed = now - block_starts[block_name];
@@ -33,7 +36,7 @@ void Profiler::stop(string block_name) {
 }
 
 void Profiler::log(string file_name) {
-	
+	if (!profiler_on) return;
 	ofstream log_file (file_name);
 	ASSERT(log_file.is_open(), "Unable to open file " << file_name);
 	for (auto block : block_times) {

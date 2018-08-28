@@ -242,9 +242,9 @@ int MCTSAgent::getAction(EnvState* state) const {
 	// print some debug info
 	vector<int>* action_counts = node->getActionCounts();
 	int dim = (int) sqrt(node->getState()->numActions());
-	printVector(*action_counts, "Master Action counts:", dim);
-	node->printMeanReward();
-	node->printExplorationTerm();
+	//printVector(*action_counts, "Master Action counts:", dim);
+	//node->printMeanReward();
+	//node->printExplorationTerm();
 	
 	// choose best action
 	int action;
@@ -431,7 +431,7 @@ int main(int argc, char* argv[]) {
 		p2_agent = new MCTSAgent(arg_map);
 	} else if (p2_agent_type == "random") {
 		p2_agent = new RandomAgent();
-	} else if (p1_agent_type == "user") {
+	} else if (p2_agent_type == "user") {
 		p2_agent = new UserAgent();
 	} else {
 		ASSERT(false, "Cannot support Player 2 Agent of type " << p2_agent_type);

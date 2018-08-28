@@ -9,7 +9,7 @@ from config import *
 
 
 
-hex_board_weights = {5: list(range(26))}
+hex_board_weights = {5: list(range(26)), 7: list(range(50))}
 
 
 

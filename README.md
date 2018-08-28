@@ -38,12 +38,11 @@ Hex is easily representable using an MDP; there are clear notions of states (a b
 
 
 ## Results
-This is a work in progress.  Currently (August 6, 2018) , on a 5x5 Hex board:
-* A pure MCTS agent beats a random opponent 100 games out of 100.
-* The apprentice policy network agent (trained on 100,000 states) beats a random opponent 93 games out of 100, on average.
-* The policy network agent beats me (an average player) about 30% of the time.
+My 5 x 5 apprentice has trained to become "as good as it can be".  Whenever the apprentice plays as Player 1, it wins.  It beats random opponents every time, it beats me every time, and it beats a very powerful MCTS agent every time.  I say this is "as good as it can be", because it has, in essence, learned the optimal Player-1 strategy for a 5x5 board.  This apprentice trained on about 1 million data points, generated over the course of 3 Expert Improvement iterations.  This took about 2 days of training in total.
 
-The network is currently being trained, and will hopefully improve considerably in the next week.
+When the apprentice plays as Player 2, it beats a random opponent 98 games out of 100, on average.  However, it loses to the MCTS expert every time when MCTS plays as Player 1, and the apprentice network plays as Player 2.  This is expected, because with enough power (number of simulations and depth), the MCTS agent will play the optimal strategy every time.
+
+I am currently (August 28. 2018) training a 7 x 7 agent.
 
 
 ## Appendix
